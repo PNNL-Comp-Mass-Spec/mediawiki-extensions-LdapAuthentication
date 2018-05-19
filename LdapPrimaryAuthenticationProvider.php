@@ -246,7 +246,7 @@ class LdapPrimaryAuthenticationProvider
 	 */
 	private function testUserCanAuthenticateInternal( LdapAuthenticationPlugin $ldap, $user ) {
 		if ( $ldap->userExistsReal( $user->getName() ) ) {
-			return !$ldap->getUserInstance( $user )->isLocked();
+			return !$user->isLocked();
 		} else {
 			return false;
 		}
@@ -310,8 +310,9 @@ class LdapPrimaryAuthenticationProvider
 
 	public function providerAllowsPropertyChange( $property ) {
 		// No way to know the right domain to query.
-		$ldap = LdapAuthenticationPlugin::getInstance();
-		return $ldap->allowPropChange( $property );
+		//$ldap = LdapAuthenticationPlugin::getInstance();
+		//return $ldap->allowPropChange( $property );
+		return true;
 	}
 
 	public function providerAllowsAuthenticationDataChange(

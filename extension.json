@@ -12,7 +12,6 @@
 		"LdapAuthenticationHooks": "LdapAuthentication.hooks.php",
 		"LdapPrimaryAuthenticationProvider": "LdapPrimaryAuthenticationProvider.php",
 		"LdapAuthenticationPlugin": "LdapAuthenticationPlugin.php",
-		"LdapAutoAuthentication": "LdapAutoAuthentication.php",
 		"LdapSessionAuthenticationProvider": "LdapSessionAuthenticationProvider.php"
 	},
 	"config": {
@@ -66,9 +65,6 @@
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": [
 			"LdapAuthenticationHooks::onLoadExtensionSchemaUpdates"
-		],
-		"UserLoadAfterLoadFromSession": [
-			"LdapAuthenticationHooks::onUserLoadAfterLoadFromSession"
 		],
 		"PersonalUrls": [
 			"LdapAuthenticationHooks::onPersonalUrls"
