@@ -6,7 +6,7 @@
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:LDAP_Authentication",
 	"descriptionmsg": "LdapAuthentication-desc",
-	"license-name": "GPL-2.0+",
+	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"AutoloadClasses": {
 		"LdapAuthenticationHooks": "LdapAuthentication.hooks.php",
@@ -59,7 +59,8 @@
 			"_merge_strategy": "array_plus"
 		},
 		"LDAPActiveDirectory": [],
-		"LDAPUseAutoAuth": false
+		"LDAPUseAutoAuth": false,
+		"LDAPGroupSearchPosixPrimaryGroup": false
 	},
 	"callback": "LdapAuthenticationHooks::onRegistration",
 	"Hooks": {

@@ -77,7 +77,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_bind
-	 * @param $ldapconn
+	 * @param resource $ldapconn
 	 * @param null $dn
 	 * @param null $password
 	 * @return bool
@@ -91,7 +91,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_unbind
-	 * @param $ldapconn
+	 * @param resource $ldapconn
 	 * @return bool
 	 */
 	public static function ldap_unbind( $ldapconn ) {
@@ -107,9 +107,9 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_modify
-	 * @param $ldapconn
-	 * @param $dn
-	 * @param $entry
+	 * @param resource $ldapconn
+	 * @param string $dn
+	 * @param array $entry
 	 * @return bool
 	 */
 	public static function ldap_modify( $ldapconn, $dn, $entry ) {
@@ -121,9 +121,9 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_add
-	 * @param $ldapconn
-	 * @param $dn
-	 * @param $entry
+	 * @param resource $ldapconn
+	 * @param string $dn
+	 * @param array $entry
 	 * @return bool
 	 */
 	public static function ldap_add( $ldapconn, $dn, $entry ) {
@@ -135,8 +135,8 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_delete
-	 * @param $ldapconn
-	 * @param $dn
+	 * @param resource $ldapconn
+	 * @param string $dn
 	 * @return bool
 	 */
 	public static function ldap_delete( $ldapconn, $dn ) {
@@ -148,14 +148,14 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_search
-	 * @param $ldapconn
-	 * @param $basedn
-	 * @param $filter
+	 * @param resource $ldapconn
+	 * @param string $basedn
+	 * @param string $filter
 	 * @param array|null $attributes
-	 * @param null $attrsonly
-	 * @param null $sizelimit
-	 * @param null $timelimit
-	 * @param null $deref
+	 * @param int|null $attrsonly
+	 * @param int|null $sizelimit
+	 * @param int|null $timelimit
+	 * @param int|null $deref
 	 * @return resource
 	 */
 	public static function ldap_search(
@@ -185,14 +185,14 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_read
-	 * @param $ldapconn
-	 * @param $basedn
-	 * @param $filter
+	 * @param resource $ldapconn
+	 * @param string $basedn
+	 * @param string $filter
 	 * @param array|null $attributes
-	 * @param null $attrsonly
-	 * @param null $sizelimit
-	 * @param null $timelimit
-	 * @param null $deref
+	 * @param int|null $attrsonly
+	 * @param int|null $sizelimit
+	 * @param int|null $timelimit
+	 * @param int|null $deref
 	 * @return resource
 	 */
 	public static function ldap_read(
@@ -222,15 +222,15 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_list
-	 * @param $ldapconn
-	 * @param $basedn
-	 * @param $filter
+	 * @param resource $ldapconn
+	 * @param string $basedn
+	 * @param string $filter
 	 * @param array|null $attributes
-	 * @param null $attrsonly
-	 * @param null $sizelimit
-	 * @param null $timelimit
-	 * @param null $deref
-	 * @return \resource
+	 * @param int|null $attrsonly
+	 * @param int|null $sizelimit
+	 * @param int|null $timelimit
+	 * @param int|null $deref
+	 * @return resource
 	 */
 	public static function ldap_list(
 		$ldapconn,
@@ -259,8 +259,8 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_get_entries
-	 * @param $ldapconn
-	 * @param $resultid
+	 * @param resource $ldapconn
+	 * @param resource $resultid
 	 * @return array
 	 */
 	public static function ldap_get_entries( $ldapconn, $resultid ) {
@@ -272,8 +272,8 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_count_entries
-	 * @param $ldapconn
-	 * @param $resultid
+	 * @param resource $ldapconn
+	 * @param resource $resultid
 	 * @return int
 	 */
 	public static function ldap_count_entries( $ldapconn, $resultid ) {
@@ -285,7 +285,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_errno
-	 * @param $ldapconn
+	 * @param resource $ldapconn
 	 * @return int
 	 */
 	public static function ldap_errno( $ldapconn ) {
@@ -438,6 +438,9 @@ class LdapAuthenticationPlugin {
 		case 'ActiveDirectory':
 			global $wgLDAPActiveDirectory;
 			return self::setOrDefault( $wgLDAPActiveDirectory, $domain, false );
+		case 'GroupSearchPosixPrimaryGroup':
+			global $wgLDAPGroupSearchPosixPrimaryGroup;
+			return self::setOrDefault( $wgLDAPGroupSearchPosixPrimaryGroup, $domain, false );
 		}
 		return '';
 	}
@@ -446,9 +449,9 @@ class LdapAuthenticationPlugin {
 	 * Returns the item from $array at index $key if it is set,
 	 * else, it returns $default
 	 *
-	 * @param $array array
-	 * @param $key
-	 * @param $default mixed
+	 * @param array $array
+	 * @param string $key
+	 * @param mixed $default
 	 * @return mixed
 	 */
 	private static function setOrDefault( $array, $key, $default = '' ) {
@@ -461,9 +464,9 @@ class LdapAuthenticationPlugin {
 	 *
 	 * Use for sensitive data
 	 *
-	 * @param $array array
-	 * @param $key
-	 * @param $default mixed
+	 * @param array $array
+	 * @param string $key
+	 * @param mixed $default
 	 * @return mixed
 	 */
 	private static function setOrDefaultPrivate( $array, $key, $default = '' ) {
@@ -757,8 +760,8 @@ class LdapAuthenticationPlugin {
 	/**
 	 * Modify options in the login template.
 	 *
-	 * @param UserLoginTemplate $template
-	 * @param $type
+	 * @param UserLoginTemplate &$template
+	 * @param string &$type
 	 */
 	public function modifyUITemplate( &$template, &$type ) {
 		$this->printDebug( "Entering modifyUITemplate", NONSENSITIVE );
@@ -991,6 +994,7 @@ class LdapAuthenticationPlugin {
 	 * Disallow MediaWiki from setting local passwords in the database,
 	 * unless UseLocal is true. Warning: if you set $wgLDAPUseLocal,
 	 * it will cause MediaWiki to leak LDAP passwords into the local database.
+	 * @return bool
 	 */
 	public function allowSetLocalPassword() {
 		return $this->getConf( 'UseLocal' );
@@ -1214,7 +1218,7 @@ class LdapAuthenticationPlugin {
 	/**
 	 * When a user logs in, update user with information from LDAP.
 	 *
-	 * @param $user User
+	 * @param User &$user
 	 * TODO: fix the setExternalID stuff
 	 */
 	public function updateUser( &$user ) {
@@ -1267,7 +1271,7 @@ class LdapAuthenticationPlugin {
 	 * When creating a user account, initialize user with information from LDAP.
 	 * TODO: fix setExternalID stuff
 	 *
-	 * @param User $user
+	 * @param User &$user
 	 * @param bool $autocreate
 	 */
 	public function initUser( &$user, $autocreate = false ) {
@@ -1498,7 +1502,7 @@ class LdapAuthenticationPlugin {
 	}
 
 	/**
-	 * @param $userdn string
+	 * @param string $userdn
 	 * @return array|null
 	 */
 	function getUserInfoStateless( $userdn ) {
@@ -1688,6 +1692,29 @@ class LdapAuthenticationPlugin {
 					);
 				}
 			}
+
+			if ( $this->getConf( 'GroupSearchPosixPrimaryGroup' ) ) {
+				if ( !$this->getUserInfo() ) {
+					$this->printDebug( "Couldn't get the user's entry.", NONSENSITIVE );
+				} elseif ( isset( $this->userInfo[0]["gidnumber"] ) ) {
+					$base = $this->getBaseDN( GROUPDN );
+					$objectclass = $this->getConf( 'GroupObjectclass' );
+					$filter = "(&(objectClass={$objectclass})" .
+						"(gidNumber={$this->userInfo[0]['gidnumber'][0]}))";
+					$info = self::ldap_search( $this->ldapconn, $base, $filter );
+					$entries = self::ldap_get_entries( $this->ldapconn, $info );
+					if ( empty( $entries[0] ) ) {
+						$this->printDebug( "Couldn't get the user's primary group.", NONSENSITIVE );
+					} else {
+						$primary_group_dn = strtolower( $entries[0]["dn"] );
+						$this->printDebug( "Got the user's primary group:", SENSITIVE, $primary_group_dn );
+						$this->userLDAPGroups["dn"][] = $primary_group_dn;
+						$nameattribute = strtolower( $this->getConf( 'GroupNameAttribute' ) );
+						$this->userLDAPGroups["short"][] = $entries[0][$nameattribute][0];
+					}
+				}
+			}
+
 			// Only find all groups if the user has any groups; otherwise, we are
 			// just wasting a search.
 			if ( $this->getConf( 'GroupsPrevail' ) && count( $this->userLDAPGroups ) != 0 ) {
@@ -1701,7 +1728,7 @@ class LdapAuthenticationPlugin {
 	 * $searchedgroups is used for tail recursion and shouldn't be provided
 	 * when called externally.
 	 *
-	 * @param $groups
+	 * @param array $groups
 	 * @param array $searchedgroups
 	 * @return bool
 	 * @access private
@@ -1881,7 +1908,7 @@ class LdapAuthenticationPlugin {
 	 * Helper function for updateUser() and initUser(). Adds users into MediaWiki security groups
 	 * based upon groups retreived from LDAP.
 	 *
-	 * @param User $user
+	 * @param User &$user
 	 * @access private
 	 */
 	function setGroups( &$user ) {
@@ -2107,7 +2134,7 @@ class LdapAuthenticationPlugin {
 	static function loadDomain( $user ) {
 		$user_id = $user->getId();
 		if ( $user_id != 0 ) {
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
 			$row = $dbr->selectRow(
 				'ldap_domains',
 				[ 'domain' ],
