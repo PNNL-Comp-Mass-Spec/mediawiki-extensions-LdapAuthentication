@@ -9,7 +9,8 @@
 class LdapAuthenticationHooks {
 
 	/**
-	 * @param $updater DatabaseUpdater
+	 * Update the db schema if needed
+	 * @param DatabaseUpdater $updater
 	 * @return bool
 	 */
 	public static function onLdapAuthenticationSchemaUpdates( $updater ) {
@@ -26,6 +27,10 @@ class LdapAuthenticationHooks {
 		return true;
 	}
 
+	/**
+	 * Base setup for the extension
+	 * @global bool $wgLDAPUseAutoAuth
+	 */
 	public static function onRegistration() {
 		global $wgLDAPUseAutoAuth;
 
@@ -48,6 +53,13 @@ class LdapAuthenticationHooks {
 		}
 	}
 
+	/**
+	 * Don't display the logout link if the user was automatically logged in
+	 * @global bool $wgLDAPUseAutoAuth
+	 * @param array $personal_urls
+	 * @param Title $title
+	 * @param SkinTemplate $skin
+	 */
 	public static function onPersonalUrls( array &$personal_urls, Title $title, SkinTemplate $skin ) {
 		global $wgLDAPUseAutoAuth;
 		$auth = LdapAuthenticationPlugin::getInstance();
