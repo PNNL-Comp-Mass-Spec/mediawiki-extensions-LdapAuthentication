@@ -1,0 +1,103 @@
+{
+	"name": "LDAP Authentication Plugin",
+	"version": "2.2.0",
+	"author": [
+		"Ryan Lane"
+	],
+	"url": "https://www.mediawiki.org/wiki/Extension:LDAP_Authentication",
+	"descriptionmsg": "LdapAuthentication-desc",
+	"license-name": "GPL-2.0+",
+	"type": "other",
+	"AutoloadClasses": {
+		"LdapAuthenticationHooks": "LdapAuthentication.hooks.php",
+		"LdapPrimaryAuthenticationProvider": "LdapPrimaryAuthenticationProvider.php",
+		"LdapAuthenticationPlugin": "LdapAuthenticationPlugin.php",
+		"LdapAutoAuthentication": "LdapAutoAuthentication.php",
+		"LdapSessionAuthenticationProvider": "LdapSessionAuthenticationProvider.php"
+	},
+	"config": {
+		"LDAPDomainNames": [],
+		"LDAPServerNames": [],
+		"LDAPUseLocal": false,
+		"LDAPEncryptionType": [],
+		"LDAPOptions": [],
+		"LDAPPort": [],
+		"LDAPSearchStrings": [],
+		"LDAPProxyAgent": [],
+		"LDAPProxyAgentPassword": [],
+		"LDAPSearchAttributes": [],
+		"LDAPBaseDNs": [],
+		"LDAPGroupBaseDNs": [],
+		"LDAPUserBaseDNs": [],
+		"LDAPWriterDN": [],
+		"LDAPWriterPassword": [],
+		"LDAPWriteLocation": [],
+		"LDAPAddLDAPUsers": [],
+		"LDAPUpdateLDAP": [],
+		"LDAPPasswordHash": [],
+		"LDAPMailPassword": [],
+		"LDAPPreferences": [],
+		"LDAPDisableAutoCreate": [],
+		"LDAPDebug": 0,
+		"LDAPGroupUseFullDN": [],
+		"LDAPLowerCaseUsername": [],
+		"LDAPGroupUseRetrievedUsername": [],
+		"LDAPGroupObjectclass": [],
+		"LDAPGroupAttribute": [],
+		"LDAPGroupNameAttribute": [],
+		"LDAPGroupsUseMemberOf": [],
+		"LDAPUseLDAPGroups": [],
+		"LDAPLocallyManagedGroups": [],
+		"LDAPGroupsPrevail": [],
+		"LDAPRequiredGroups": [],
+		"LDAPExcludedGroups": [],
+		"LDAPGroupSearchNestedGroups": [],
+		"LDAPAuthAttribute": [],
+		"LDAPAutoAuthUsername": "",
+		"LDAPAutoAuthDomain": "",
+		"PasswordResetRoutes": {
+			"domain": true,
+			"_merge_strategy": "array_plus"
+		},
+		"LDAPActiveDirectory": [],
+		"LDAPUseAutoAuth": false
+	},
+	"callback": "LdapAuthenticationHooks::onRegistration",
+	"Hooks": {
+		"LoadExtensionSchemaUpdates": [
+			"LdapAuthenticationHooks::onLoadExtensionSchemaUpdates"
+		],
+		"UserLoadAfterLoadFromSession": [
+			"LdapAuthenticationHooks::onUserLoadAfterLoadFromSession"
+		],
+		"PersonalUrls": [
+			"LdapAuthenticationHooks::onPersonalUrls"
+		]
+	},
+	"AuthManagerAutoConfig": {
+		"primaryauth": {
+			"LdapPrimaryAuthenticationProvider": {
+				"class": "LdapPrimaryAuthenticationProvider",
+				"args": [ {
+					"authoritative": true
+				} ],
+				"sort": 50
+			}
+		}
+	},
+	"SessionProviders": {
+		"LdapSessionProvider": {
+			"class": "LdapSessionAuthenticationProvider"
+		}
+	},
+	"MessagesDirs": {
+		"LdapAuthentication": [
+			"i18n"
+		]
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "LdapAuthentication"
+	},
+	"manifest_version": 1
+}

@@ -49,8 +49,8 @@ class LdapPrimaryAuthenticationProvider
 	private $hasMultipleDomains;
 	private $requestType;
 
-	public function __construct() {
-		parent::__construct();
+	public function __construct( $params = [] ) {
+		parent::__construct( $params );
 
 		$ldap = LdapAuthenticationPlugin::getInstance();
 		$this->hasMultipleDomains = count( $ldap->domainList() ) > 1;

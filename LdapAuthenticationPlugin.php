@@ -650,7 +650,10 @@ class LdapAuthenticationPlugin extends AuthPlugin {
 		// If the user is using auto authentication, we need to ensure
 		// that he/she isn't trying to fool us by sending a username other
 		// than the one the web server got from the auto-authentication method.
-		if ( $this->useAutoAuth() && $this->getConf( 'AutoAuthUsername' ) != $username ) {
+		// If the auto-authentication mechanism username is blank, that means it failed,
+		// so do allow a password login if they have specified a password.
+		$autoAuthUserName = $this->getConf( 'AutoAuthUsername' );
+		if ( $this->useAutoAuth() && ( $autoAuthUserName != $username && ( strlen( $autoAuthUserName ) > 0 || strlen( $password ) === 0 ))) {
 			$this->printDebug( "The username provided ($username) doesn't match the username " .
 				"provided by the webserver (" . $this->getConf( 'AutoAuthUsername' ) . "). " .
 				"The user is probably trying to log in to the auto-authentication domain with " .
@@ -1161,7 +1164,7 @@ class LdapAuthenticationPlugin extends AuthPlugin {
 	public function getDomain() {
 		global $wgUser;
 
-		$this->printDebug( "Entering getDomain", NONSENSITIVE );
+		//$this->printDebug( "Entering getDomain", NONSENSITIVE );
 
 		# If there's only a single domain set, there's no reason
 		# to bother with sessions, tokens, etc.. This works around
@@ -1170,19 +1173,21 @@ class LdapAuthenticationPlugin extends AuthPlugin {
 		# though.
 		$domainNames = $this->getConf( 'DomainNames' );
 		if ( ( count( $domainNames ) === 1 ) && !$this->getConf( 'UseLocal' ) ) {
+            $this->printDebug( "getDomain: returning '".$domainNames[0]."'", NONSENSITIVE );
 			return $domainNames[0];
 		}
 		# First check if we already have a valid domain set
 		if ( isset( $_SESSION['wsDomain'] ) && $_SESSION['wsDomain'] != 'invaliddomain' ) {
-			$this->printDebug( "Pulling domain from session.", NONSENSITIVE );
+			$this->printDebug( "Pulling domain from session, returning '".$_SESSION['wsDomain']."'", NONSENSITIVE );
 			return $_SESSION['wsDomain'];
 		}
 		# If the session domain isn't set, the user may have been logged
 		# in with a token, check the user options.
 		# If $wgUser isn't defined yet, it might be due to an LDAPAutoAuthDomain config.
 		if ( isset( $wgUser ) && $wgUser->isLoggedIn() && $wgUser->getToken( false ) ) {
-			$this->printDebug( "Pulling domain from user options.", NONSENSITIVE );
+			//$this->printDebug( "Pulling domain from user options.", NONSENSITIVE );
 			$domain = self::loadDomain( $wgUser );
+			$this->printDebug( "Pulled domain from user options, returning '".$domain."'", NONSENSITIVE );
 			if ( $domain ) {
 				return $domain;
 			}
@@ -2001,7 +2006,7 @@ class LdapAuthenticationPlugin extends AuthPlugin {
 			if ( isset( $debugArr ) ) {
 				$debugText = $debugText . " " . implode( "::", $debugArr );
 			}
-			wfDebugLog( 'ldap', LDAPAUTHVERSION . ' ' . $debugText, false );
+			wfDebugLog( 'ldap', $debugText, false );
 		}
 	}
 

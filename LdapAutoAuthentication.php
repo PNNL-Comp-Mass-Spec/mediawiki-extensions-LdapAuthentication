@@ -10,6 +10,11 @@ class LdapAutoAuthentication {
 	 * @return bool
 	 */
 	public static function Authenticate( $user, &$result = null ) {
+		global $wgDisableAuthManager;
+		if ( class_exists( MediaWiki\Auth\AuthManager::class ) && empty( $wgDisableAuthManager ) ) {
+			return;
+		}
+		
 		$ldap = LdapAuthenticationPlugin::getInstance();
 
 		$ldap->printDebug( "Entering AutoAuthentication.", NONSENSITIVE );
