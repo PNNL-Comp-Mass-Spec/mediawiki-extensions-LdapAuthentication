@@ -108,7 +108,7 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 			$user = User::newFromSession( $request ); // TODO: or use User::newFromName( $mungedUsername );?
 			// Is the user already in the database?
 			if ( !$localId ) {
-				$userAdded = self::attemptAddUser( $user, $mungedUsername );
+				$userAdded = self::attemptAddUser( $mungedUsername );
 				if ( !$userAdded ) {
 					return $session;
 				}
@@ -138,7 +138,7 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 	 * @param $mungedUsername String
 	 * @return bool
 	 */
-	public static function attemptAddUser( $user, $mungedUsername ) {
+	public static function attemptAddUser( $mungedUsername ) {
 		$ldap = LdapAuthenticationPlugin::getInstance();
 
 		if ( !$ldap->autoCreate() ) {
@@ -148,6 +148,7 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 
 		$ldap->printDebug( "User does not exist in local database; creating.", NONSENSITIVE );
 		// Checks passed, create the user
+		$user = User::newFromName( $mungedUsername );
 		$user->loadDefaults( $mungedUsername );
 		$status = $user->addToDatabase();
 		if ( $status !== null && !$status->isOK() ) {
