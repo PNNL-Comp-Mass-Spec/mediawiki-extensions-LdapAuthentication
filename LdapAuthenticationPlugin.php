@@ -1906,7 +1906,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Helper function for updateUser() and initUser(). Adds users into MediaWiki security groups
-	 * based upon groups retreived from LDAP.
+	 * based upon groups retrieved from LDAP.
 	 *
 	 * @param User &$user
 	 * @access private
@@ -2036,8 +2036,8 @@ class LdapAuthenticationPlugin {
 	 * Binds as $userdn with $password. This can be called with only the ldap
 	 * connection resource for an anonymous bind.
 	 *
-	 * @param string $userdn
-	 * @param string $password
+	 * @param string|null $userdn
+	 * @param string|null $password
 	 * @return bool
 	 * @access private
 	 */
