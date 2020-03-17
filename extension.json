@@ -60,7 +60,8 @@
 		},
 		"LDAPActiveDirectory": [],
 		"LDAPUseAutoAuth": false,
-		"LDAPGroupSearchPosixPrimaryGroup": false
+		"LDAPGroupSearchPosixPrimaryGroup": false,
+		"LDAPLockOnBlock": false
 	},
 	"callback": "LdapAuthenticationHooks::onRegistration",
 	"Hooks": {
@@ -69,6 +70,12 @@
 		],
 		"PersonalUrls": [
 			"LdapAuthenticationHooks::onPersonalUrls"
+		],
+		"BlockIpComplete": [
+			"LdapAuthenticationHooks::onBlockIpComplete"
+		],
+		"UnblockUserComplete": [
+			"LdapAuthenticationHooks::onUnblockUserComplete"
 		]
 	},
 	"AuthManagerAutoConfig": {
