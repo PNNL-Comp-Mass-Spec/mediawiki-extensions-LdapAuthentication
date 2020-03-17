@@ -16,7 +16,8 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-/**
+use MediaWiki\Block\DatabaseBlock;
+
  * Hooks for LdapAuthentication extension
  *
  * @file
@@ -55,6 +56,9 @@ class LdapAuthenticationHooks {
 
 	/**
 	 * Lock/unlock an LDAP account via a 'pwdAccountLockedTime' attribute.
+	 * Optionally set a password policy. This should help cover some cases
+	 * pwdAccountLockedTime doesn't cover well like out-of-band (e.g. by an
+	 * admin) password resets.
 	 *
 	 * @param User $user User to lock/unlock
 	 * @param bool $lock True to lock, False to unlock
@@ -62,17 +66,25 @@ class LdapAuthenticationHooks {
 	 *   handler response
 	 */
 	private static function setLdapLockStatus( User $user, $lock ) {
-		$actionStr = $lock ? 'lock' : 'unlock';
-		// * '000001010000Z' means that the account has been locked
-		// permanently, and that only a password administrator can unlock the
-		// account.
-		// * empty array means delete the attribute
-		$lockData = $lock ? '000001010000Z' : [];
-
 		$ldap = static::getLDAP();
 		if ( !$ldap ) {
 			return 'Failed to initialize LDAP connection';
 		}
+
+		$ppolicy = $ldap->getConf( 'LDAPLockPasswordPolicy' );
+
+		$actionStr = $lock ? 'lock' : 'unlock';
+		// * '000001010000Z' means that the account has been locked
+		// permanently, and that only a password administrator can unlock the
+		// account.
+		// * If a password policy has been configured, apply that as well
+		// * empty array means delete the attribute
+		$lockData = [];
+		$lockData['pwdAccountLockedTime'] = $lock ? '000001010000Z' : [];
+		if ( $ppolicy ) {
+			$lockData['pwdPolicySubentry'] = $lock ? $ppolicy : [];
+		}
+
 		$userDN = $ldap->getUserDN( $user->getName() );
 		if ( !$userDN ) {
 			return "Failed to lookup DN for user {$user->getName()}";
@@ -82,8 +94,7 @@ class LdapAuthenticationHooks {
 		$success = LdapAuthenticationPlugin::ldap_modify(
 			$ldap->ldapconn,
 			$userDN,
-			[ 'pwdAccountLockedTime' => $lockData ]
-		);
+			$lockData );
 		if ( !$success ) {
 			$msg = "Failed to {$actionStr} LDAP account {$userDN}";
 			$errno = LdapAuthenticationPlugin::ldap_errno( $ldap->ldapconn );
@@ -97,15 +108,15 @@ class LdapAuthenticationHooks {
 	 * block is made against a specific user. Alternately, unlock the account
 	 * if a new block is placed replacing a prior indefinite block.
 	 *
-	 * @param Block $block The Block object that was saved
+	 * @param DatabaseBlock $block The block object that was saved
 	 * @param User $user The user who performed the unblock
-	 * @param Block|null $prior Previous block that was replaced
+	 * @param DatabaseBlock|null $prior Previous block that was replaced
 	 * @return null|bool|string Hook status
 	 */
-	public static function onBlockIpComplete( Block $block, User $user, $prior ) {
+	public static function onBlockIpComplete( DatabaseBlock $block, User $user, $prior ) {
 		global $wgLDAPLockOnBlock;
 		if ( $wgLDAPLockOnBlock ) {
-			if ( $block->getType() === Block::TYPE_USER
+			if ( $block->getType() === DatabaseBlock::TYPE_USER
 				&& $block->getExpiry() === 'infinity'
 				&& $block->isSitewide()
 			) {
@@ -122,14 +133,14 @@ class LdapAuthenticationHooks {
 	 * Inspect removed blocks and unlock the backing LDAP account when an
 	 * indefinite block is lifted against a specific user.
 	 *
-	 * @param Block $block the Block object that was saved
+	 * @param DatabaseBlock $block the block object that was saved
 	 * @param User $user The user who performed the unblock
 	 * @return null|bool|string Hook status
 	 */
-	public static function onUnblockUserComplete( Block $block, User $user ) {
+	public static function onUnblockUserComplete( DatabaseBlock $block, User $user ) {
 		global $wgLDAPLockOnBlock;
 		if ( $wgLDAPLockOnBlock
-			&& $block->getType() === Block::TYPE_USER
+			&& $block->getType() === DatabaseBlock::TYPE_USER
 			&& $block->getExpiry() === 'infinity'
 			&& $block->isSitewide()
 		) {

@@ -102,9 +102,9 @@ class LdapPrimaryAuthenticationProvider
 		$domainList = $ldap->domainList();
 		if ( count( $domainList ) > 1 ) {
 			return new PasswordDomainAuthenticationRequest( $domainList );
-		} else {
-			return new PasswordAuthenticationRequest;
 		}
+
+		return new PasswordAuthenticationRequest;
 	}
 
 	/**
@@ -164,6 +164,7 @@ class LdapPrimaryAuthenticationProvider
 
 	public function beginPrimaryAuthentication( array $reqs ) {
 		$req = AuthenticationRequest::getRequestByClass( $reqs, $this->requestType );
+		'@phan-var PasswordAuthenticationRequest|PasswordDomainAuthenticationRequest|null $req';
 		if ( !$req || $req->username === null || $req->password === null ||
 			( $this->hasMultipleDomains && $req->domain === null )
 		) {
@@ -192,10 +193,11 @@ class LdapPrimaryAuthenticationProvider
 			$ldap->authenticate( $username, $req->password )
 		) {
 			return AuthenticationResponse::newPass( $username );
-		} else {
-			$this->authoritative = $ldap->strict();
-			return $this->failResponse( $req );
 		}
+
+		$this->authoritative = $ldap->strict();
+
+		return $this->failResponse( $req );
 	}
 
 	public function testUserCanAuthenticate( $username ) {
@@ -217,11 +219,12 @@ class LdapPrimaryAuthenticationProvider
 			}
 			$ldap->setDomain( $curDomain );
 			return false;
-		} else {
-			// Yay, easy way out.
-			$ldap->setDomain( $ldap->getDomain() );
-			return $this->testUserCanAuthenticateInternal( $ldap, User::newFromName( $username ) );
 		}
+
+		// Yay, easy way out.
+		$ldap->setDomain( $ldap->getDomain() );
+
+		return $this->testUserCanAuthenticateInternal( $ldap, User::newFromName( $username ) );
 	}
 
 	/**
@@ -287,11 +290,12 @@ class LdapPrimaryAuthenticationProvider
 			}
 			$ldap->setDomain( $curDomain );
 			return false;
-		} else {
-			// Yay, easy way out.
-			$ldap->setDomain( $ldap->getDomain() );
-			return $ldap->userExistsReal( $username );
 		}
+
+		// Yay, easy way out.
+		$ldap->setDomain( $ldap->getDomain() );
+
+		return $ldap->userExistsReal( $username );
 	}
 
 	public function providerAllowsPropertyChange( $property ) {
@@ -301,11 +305,10 @@ class LdapPrimaryAuthenticationProvider
 	public function providerAllowsAuthenticationDataChange(
 		AuthenticationRequest $req, $checkData = true
 	) {
-		if ( get_class( $req ) !== $this->requestType ) {
-			return \StatusValue::newGood( 'ignored' );
-		}
-
-		if ( $this->hasMultipleDomains && $req->domain === 'local' ) {
+		'@phan-var PasswordAuthenticationRequest|PasswordDomainAuthenticationRequest|null $req';
+		if ( get_class( $req ) !== $this->requestType || (
+			$this->hasMultipleDomains && $req->domain === 'local' )
+		) {
 			return \StatusValue::newGood( 'ignored' );
 		}
 
@@ -345,15 +348,16 @@ class LdapPrimaryAuthenticationProvider
 					}
 				}
 				return $sv;
-			} else {
-				return \StatusValue::newGood( 'ignored' );
 			}
+
+			return \StatusValue::newGood( 'ignored' );
 		} finally {
 			$ldap->setDomain( $curDomain );
 		}
 	}
 
 	public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
+		'@phan-var PasswordAuthenticationRequest|PasswordDomainAuthenticationRequest|null $req';
 		if ( get_class( $req ) === $this->requestType ) {
 			$username = $req->username !== null ? User::getCanonicalName( $req->username, 'usable' ) : false;
 			if ( $username === false ) {
@@ -395,6 +399,7 @@ class LdapPrimaryAuthenticationProvider
 		}
 
 		$req = AuthenticationRequest::getRequestByClass( $reqs, $this->requestType );
+		'@phan-var PasswordAuthenticationRequest|PasswordDomainAuthenticationRequest|null $req';
 		if ( !$req || $req->username === null || $req->password === null ||
 			( $this->hasMultipleDomains && $req->domain === null )
 		) {
@@ -412,11 +417,11 @@ class LdapPrimaryAuthenticationProvider
 			$user, $req->password, $user->getEmail(), $user->getRealName()
 		) ) {
 			return AuthenticationResponse::newPass();
-		} else {
-			return AuthenticationResponse::newFail(
-				new \Message( 'authmanager-authplugin-create-fail' )
-			);
 		}
+
+		return AuthenticationResponse::newFail(
+			new \Message( 'authmanager-authplugin-create-fail' )
+		);
 	}
 
 	public function autoCreatedAccount( $user, $source ) {

@@ -61,7 +61,8 @@
 		"LDAPActiveDirectory": [],
 		"LDAPUseAutoAuth": false,
 		"LDAPGroupSearchPosixPrimaryGroup": false,
-		"LDAPLockOnBlock": false
+		"LDAPLockOnBlock": false,
+		"LDAPLockPasswordPolicy": ""
 	},
 	"callback": "LdapAuthenticationHooks::onRegistration",
 	"Hooks": {
