@@ -9,7 +9,7 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"AutoloadClasses": {
-		"LdapAuthenticationHooks": "LdapAuthentication.hooks.php",
+		"LdapAuthenticationHooks": "LdapAuthenticationHooks.php",
 		"LdapPrimaryAuthenticationProvider": "LdapPrimaryAuthenticationProvider.php",
 		"LdapAuthenticationPlugin": "LdapAuthenticationPlugin.php",
 		"LdapSessionAuthenticationProvider": "LdapSessionAuthenticationProvider.php"
