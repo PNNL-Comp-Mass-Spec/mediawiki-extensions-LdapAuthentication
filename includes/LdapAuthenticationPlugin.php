@@ -17,6 +17,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  */
+use MediaWiki\MediaWikiServices;
 
 class LdapAuthenticationPlugin {
 
@@ -64,7 +65,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * Wrapper for ldap_connect
-	 * @param null $hostname
+	 * @param string|null $hostname
 	 * @param int $port
 	 * @return resource|false
 	 */
@@ -78,8 +79,8 @@ class LdapAuthenticationPlugin {
 	/**
 	 * Wrapper for ldap_bind
 	 * @param resource $ldapconn
-	 * @param null $dn
-	 * @param null $password
+	 * @param string|null $dn
+	 * @param string|null $password
 	 * @return bool
 	 */
 	public static function ldap_bind( $ldapconn, $dn = null, $password = null ) {
@@ -262,6 +263,7 @@ class LdapAuthenticationPlugin {
 	 * @param resource $ldapconn
 	 * @param resource $resultid
 	 * @return array
+	 * @phan-return array<int|string,int|array<int|string,string|int|array<int|string,int|string>>>
 	 */
 	public static function ldap_get_entries( $ldapconn, $resultid ) {
 		Wikimedia\suppressWarnings();
@@ -539,7 +541,7 @@ class LdapAuthenticationPlugin {
 				}
 			}
 			// getSearchString is going to bind, but will not unbind
-			self::ldap_unbind( $this->ldapconn );
+			$this->unbind();
 		}
 		return $ret;
 	}
@@ -685,7 +687,7 @@ class LdapAuthenticationPlugin {
 			// return true, and will let anyone in!
 			if ( '' == $this->userdn ) {
 				$this->printDebug( "User DN is blank", NONSENSITIVE );
-				self::ldap_unbind( $this->ldapconn );
+				$this->unbind();
 				$this->markAuthFailed();
 				return false;
 			}
@@ -701,7 +703,8 @@ class LdapAuthenticationPlugin {
 				}
 				$result = true;
 				Hooks::run( 'ChainAuth', [ $username, $password, &$result ] );
-				if ( $result == false ) {
+				// @phan-suppress-next-line PhanImpossibleCondition False positive
+				if ( !$result ) {
 					return false;
 				}
 
@@ -734,7 +737,7 @@ class LdapAuthenticationPlugin {
 				$info = self::ldap_get_entries( $this->ldapconn, $entry );
 				if ( $info["count"] < 1 ) {
 					$this->printDebug( "Failed auth attribute check", NONSENSITIVE );
-					self::ldap_unbind( $this->ldapconn );
+					$this->unbind();
 					$this->markAuthFailed();
 					return false;
 				}
@@ -743,14 +746,13 @@ class LdapAuthenticationPlugin {
 			$this->getGroups( $username );
 
 			if ( !$this->checkGroups() ) {
-				self::ldap_unbind( $this->ldapconn );
+				$this->unbind();
 				$this->markAuthFailed();
 				return false;
 			}
 
 			$this->getPreferences();
-
-			self::ldap_unbind( $this->ldapconn );
+			$this->unbind();
 		} else {
 			$this->markAuthFailed();
 			return false;
@@ -763,22 +765,6 @@ class LdapAuthenticationPlugin {
 
 	public function markAuthFailed() {
 		$this->authFailed = true;
-	}
-
-	/**
-	 * Modify options in the login template.
-	 *
-	 * @param BaseTemplate &$template
-	 * @param string &$type
-	 */
-	public function modifyUITemplate( &$template, &$type ) {
-		$this->printDebug( "Entering modifyUITemplate", NONSENSITIVE );
-		$template->set( 'create', $this->getConf( 'AddLDAPUsers' ) );
-		$template->set( 'usedomain', true );
-		$template->set( 'useemail', $this->getConf( 'MailPassword' ) );
-		$template->set( 'canreset', $this->getConf( 'MailPassword' ) );
-		$template->set( 'domainnames', $this->domainList() );
-		Hooks::run( 'LDAPModifyUITemplate', [ &$template ] );
 	}
 
 	/**
@@ -826,7 +812,7 @@ class LdapAuthenticationPlugin {
 	 * Return true if successful.
 	 *
 	 * @param User $user
-	 * @param string $password
+	 * @param string|null $password
 	 * @return bool
 	 */
 	public function setPassword( $user, $password ) {
@@ -873,7 +859,7 @@ class LdapAuthenticationPlugin {
 			$success = self::ldap_modify(
 				$this->ldapconn, $this->userdn, $values
 			);
-			self::ldap_unbind( $this->ldapconn );
+			$this->unbind();
 			if ( $success ) {
 				$this->printDebug( "Successfully modified the user's password", NONSENSITIVE );
 				return true;
@@ -891,8 +877,6 @@ class LdapAuthenticationPlugin {
 	 * @return bool
 	 */
 	public function updateExternalDB( $user ) {
-		global $wgMemc;
-
 		$this->printDebug( "Entering updateExternalDB", NONSENSITIVE );
 		if ( !$this->getConf( 'UpdateLDAP' ) || $this->getDomain() == 'local' ) {
 			$this->printDebug(
@@ -956,14 +940,16 @@ class LdapAuthenticationPlugin {
 				self::ldap_modify( $this->ldapconn, $this->userdn, $values )
 			) {
 				// We changed the user, we need to invalidate the memcache key
-				$key = wfMemcKey( 'ldapauthentication', 'userinfo', $this->userdn );
-				$wgMemc->delete( $key );
+				$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+				$key = $cache->makeKey( 'ldapauthentication-userinfo', $this->userdn );
+				$cache->delete( $key );
+
 				$this->printDebug( "Successfully modified the user's attributes", NONSENSITIVE );
-				self::ldap_unbind( $this->ldapconn );
+				$this->unbind();
 				return true;
 			}
 			$this->printDebug( "Failed to modify the user's attributes", NONSENSITIVE );
-			self::ldap_unbind( $this->ldapconn );
+			$this->unbind();
 		}
 		return false;
 	}
@@ -1062,7 +1048,7 @@ class LdapAuthenticationPlugin {
 				} else {
 					$this->printDebug( "wgLDAPWriteLocation is not set, failing", NONSENSITIVE );
 					// getSearchString will bind, but will not unbind
-					self::ldap_unbind( $this->ldapconn );
+					$this->unbind();
 					return false;
 				}
 			}
@@ -1115,18 +1101,19 @@ class LdapAuthenticationPlugin {
 			# Let other extensions modify the user object before creation
 			Hooks::run( 'LDAPSetCreationValues',
 				[ $this, $username, &$values, $writeloc, &$this->userdn, &$result ] );
+			// @phan-suppress-next-line PhanImpossibleCondition False positive
 			if ( !$result ) {
 				$this->printDebug(
 					"Failed to add user because LDAPSetCreationValues returned false", NONSENSITIVE
 				);
-				self::ldap_unbind( $this->ldapconn );
+				$this->unbind();
 				return false;
 			}
 
 			$this->printDebug( "Adding user", NONSENSITIVE );
 			if ( self::ldap_add( $this->ldapconn, $this->userdn, $values ) ) {
 				$this->printDebug( "Successfully added user", NONSENSITIVE );
-				self::ldap_unbind( $this->ldapconn );
+				$this->unbind();
 				return true;
 			}
 			$errno = self::ldap_errno( $this->ldapconn );
@@ -1135,16 +1122,17 @@ class LdapAuthenticationPlugin {
 				$result = false;
 				Hooks::run( 'LDAPRetrySetCreationValues',
 					[ $this, $username, &$values, $writeloc, &$this->userdn, &$result ] );
+				// @phan-suppress-next-line PhanImpossibleCondition False positive
 				if ( $result &&
 					self::ldap_add( $this->ldapconn, $this->userdn, $values )
 				) {
 					$this->printDebug( "Successfully added user", NONSENSITIVE );
-					self::ldap_unbind( $this->ldapconn );
+					$this->unbind();
 					return true;
 				}
 			}
 			$this->printDebug( "Failed to add user", NONSENSITIVE );
-			self::ldap_unbind( $this->ldapconn );
+			$this->unbind();
 		}
 		return false;
 	}
@@ -1334,14 +1322,11 @@ class LdapAuthenticationPlugin {
 	 * @return string
 	 */
 	public function getCanonicalName( $username ) {
-		global $wgMemc;
-
 		$this->printDebug( "Entering getCanonicalName", NONSENSITIVE );
 		if ( User::isIP( $username ) ) {
 			$this->printDebug( "Username is an IP, not munging.", NONSENSITIVE );
 			return $username;
 		}
-		$key = wfMemcKey( 'ldapauthentication', 'canonicalname', $username );
 		$canonicalname = $username;
 		if ( $username != '' ) {
 			$this->printDebug( "Username is: $username", NONSENSITIVE );
@@ -1349,51 +1334,45 @@ class LdapAuthenticationPlugin {
 				$canonicalname = ucfirst( strtolower( $canonicalname ) );
 			} else {
 				# Fetch username, so that we can possibly use it.
-				$userInfo = $wgMemc->get( $key );
-				if ( is_array( $userInfo ) ) {
-					$this->printDebug( "Fetched userInfo from memcache.", NONSENSITIVE );
-					if ( $userInfo["username"] == $username ) {
-						$this->printDebug(
-							"Username matched a key in memcache, using the fetched name: " .
-								$userInfo["canonicalname"],
-							NONSENSITIVE
-						);
-						return $userInfo["canonicalname"];
-					}
-				}
-				if ( $this->validDomain( $this->getDomain() ) && $this->connect() ) {
-					// Try to pull the username from LDAP. In the case of straight binds,
-					// try to fetch the username by search before bind.
-					$this->userdn = $this->getUserDN( $username, true );
-					$hookSetUsername = $this->LDAPUsername;
-					Hooks::run( 'SetUsernameAttributeFromLDAP',
-						[ &$hookSetUsername, $this->userInfo ] );
-					if ( is_string( $hookSetUsername ) ) {
-						$this->printDebug(
-							"Username munged by hook: $hookSetUsername", NONSENSITIVE
-						);
-						$this->LDAPUsername = $hookSetUsername;
-					} else {
-						$this->printDebug(
-							"Fetched username is not a string (check your hook code...). " .
-							"This message can be safely ignored if you do not have the " .
-							"SetUsernameAttributeFromLDAP hook defined.", NONSENSITIVE
-						);
-					}
-				}
+				$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+				$userInfo = $cache->getWithSetCallback(
+					$cache->makeKey( 'ldapauthentication-canonicalname', $username ),
+					$cache::TTL_DAY,
+					function () use ( $username ) {
+						$canonicalname = $username;
 
-				// We want to use the username returned by LDAP
-				// if it exists
-				if ( $this->LDAPUsername != '' ) {
-					$canonicalname = ucfirst( $this->LDAPUsername );
-					$this->printDebug( "Using LDAPUsername: $canonicalname", NONSENSITIVE );
-				}
+						if ( $this->validDomain( $this->getDomain() ) && $this->connect() ) {
+							// Try to pull the username from LDAP. In the case of straight binds,
+							// try to fetch the username by search before bind.
+							$this->userdn = $this->getUserDN( $username, true );
+							$hookSetUsername = $this->LDAPUsername;
+							Hooks::run( 'SetUsernameAttributeFromLDAP',
+								[ &$hookSetUsername, $this->userInfo ] );
+							if ( is_string( $hookSetUsername ) ) {
+								$this->printDebug(
+									"Username munged by hook: $hookSetUsername", NONSENSITIVE
+								);
+								$this->LDAPUsername = $hookSetUsername;
+							} else {
+								$this->printDebug(
+									"Fetched username is not a string (check your hook code...). " .
+									"This message can be safely ignored if you do not have the " .
+									"SetUsernameAttributeFromLDAP hook defined.", NONSENSITIVE
+								);
+							}
+						}
 
-				$wgMemc->set(
-					$key,
-					[ "username" => $username, "canonicalname" => $canonicalname ],
-					3600 * 24
+						// We want to use the username returned by LDAP if it exists
+						if ( $this->LDAPUsername != '' ) {
+							$canonicalname = ucfirst( $this->LDAPUsername );
+							$this->printDebug( "Using LDAPUsername: $canonicalname", NONSENSITIVE );
+						}
+
+						return [ 'username' => $username, 'canonicalname' => $canonicalname ];
+					}
 				);
+
+				$canonicalname = $userInfo['canonicalname'];
 			}
 		}
 		$this->printDebug( "Munged username: $canonicalname", NONSENSITIVE );
@@ -1504,7 +1483,7 @@ class LdapAuthenticationPlugin {
 			return true;
 		}
 		$userInfo = $this->getUserInfoStateless( $this->userdn );
-		if ( is_null( $userInfo ) ) {
+		if ( $userInfo === null ) {
 			$this->fetchedUserInfo = false;
 		} else {
 			$this->fetchedUserInfo = true;
@@ -1516,23 +1495,31 @@ class LdapAuthenticationPlugin {
 	/**
 	 * @param string $userdn
 	 * @return array|null
+	 * @phan-return ?array<int|string,int|array<int|string,string|int|array<int|string,int|string>>>
 	 */
 	public function getUserInfoStateless( $userdn ) {
-		global $wgMemc;
+		$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
 
-		$key = wfMemcKey( 'ldapauthentication', 'userinfo', $userdn );
-		$userInfo = $wgMemc->get( $key );
-		if ( !is_array( $userInfo ) ) {
-			$entry = self::ldap_read(
-				$this->ldapconn, $userdn, "objectclass=*", [ '*', 'memberof' ]
-			);
-			$userInfo = self::ldap_get_entries( $this->ldapconn, $entry );
-			if ( $userInfo["count"] < 1 ) {
-				return null;
+		return $cache->getWithSetCallback(
+			$cache->makeKey( 'ldapauthentication-userinfo', $userdn ),
+			$cache::TTL_DAY,
+			function ( $oldValue, &$ttl ) use ( $userdn, $cache ) {
+				$entry = self::ldap_read(
+					$this->ldapconn,
+					$userdn,
+					"objectclass=*",
+					[ '*', 'memberof' ]
+				);
+				$userInfo = self::ldap_get_entries( $this->ldapconn, $entry );
+				if ( $userInfo["count"] < 1 ) {
+					$ttl = $cache::TTL_UNCACHEABLE;
+
+					return null;
+				}
+
+				return $userInfo;
 			}
-			$wgMemc->set( $key, $userInfo, 3600 * 24 );
-		}
-		return $userInfo;
+		);
 	}
 
 	/**
@@ -1544,13 +1531,13 @@ class LdapAuthenticationPlugin {
 		// Retrieve preferences
 		$prefs = $this->getConf( 'Preferences' );
 		if ( !$prefs ) {
-			return null;
+			return;
 		}
 		if ( !$this->getUserInfo() ) {
 			$this->printDebug(
 				"Failed to get preferences, the user's entry wasn't found.", NONSENSITIVE
 			);
-			return null;
+			return;
 		}
 		$this->printDebug( "Retrieving preferences", NONSENSITIVE );
 		foreach ( array_keys( $prefs ) as $key ) {
@@ -1719,7 +1706,7 @@ class LdapAuthenticationPlugin {
 						$this->printDebug( "Couldn't get the user's primary group.", NONSENSITIVE );
 					} else {
 						$primary_group_dn = strtolower( $entries[0]["dn"] );
-						$this->printDebug( "Got the user's primary group:", SENSITIVE, $primary_group_dn );
+						$this->printDebug( "Got the user's primary group:" . $primary_group_dn, SENSITIVE );
 						$this->userLDAPGroups["dn"][] = $primary_group_dn;
 						$nameattribute = strtolower( $this->getConf( 'GroupNameAttribute' ) );
 						$this->userLDAPGroups["short"][] = $entries[0][$nameattribute][0];
@@ -1996,11 +1983,6 @@ class LdapAuthenticationPlugin {
 		// Set the password hashing based upon admin preference
 		switch ( $this->getConf( 'PasswordHash' ) ) {
 			case 'crypt':
-				// https://bugs.php.net/bug.php?id=55439
-				if ( crypt( 'password', '$1$U7AjYB.O$' ) == '$1$U7AjYB.O' ) {
-					die( 'The version of PHP in use has a broken crypt function. Please upgrade ' .
-						'your installation of PHP, or use another encryption function for LDAP.' );
-				}
 				$pass = '{CRYPT}' . crypt( $password );
 				break;
 			case 'clear':
@@ -2020,7 +2002,7 @@ class LdapAuthenticationPlugin {
 	 * is the level at which you want to print the information.
 	 *
 	 * @param string $debugText
-	 * @param string $debugVal
+	 * @param int $debugVal One of NONSENSITIVE, SENSITIVE or HIGHLYSENSITIVE
 	 * @param array|null $debugArr
 	 */
 	public function printDebug( $debugText, $debugVal, $debugArr = null ) {
@@ -2034,7 +2016,8 @@ class LdapAuthenticationPlugin {
 			if ( isset( $debugArr ) ) {
 				$debugText = $debugText . " " . implode( "::", $debugArr );
 			}
-			wfDebugLog( 'ldap', $debugText, false );
+			/* Update second parameter when bumping versions */
+			wfDebugLog( 'ldap', '2.2.0' . ' ' . $debugText, false );
 		}
 	}
 
@@ -2059,6 +2042,18 @@ class LdapAuthenticationPlugin {
 		}
 		$this->boundAs = $userdn;
 		return true;
+	}
+
+	/**
+	 * Unbind and destroy the current LDAP connection.
+	 * @return void
+	 */
+	public function unbind() {
+		self::ldap_unbind( $this->ldapconn );
+		// ldap_unbind marks the connection resource as unusable, so discard
+		// it so that we know to recreate it when needed in the future.
+		$this->ldapconn = null;
+		$this->boundAs = null;
 	}
 
 	/**
@@ -2131,7 +2126,7 @@ class LdapAuthenticationPlugin {
 
 	/**
 	 * @param User $user
-	 * @return string
+	 * @return string|null
 	 */
 	public static function loadDomain( $user ) {
 		$user_id = $user->getId();

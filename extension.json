@@ -1,84 +1,167 @@
 {
 	"name": "LDAP Authentication Plugin",
 	"version": "2.2.0",
-	"author": [
-		"Ryan Lane"
-	],
+	"author": "Ryan Lane",
 	"url": "https://www.mediawiki.org/wiki/Extension:LDAP_Authentication",
 	"descriptionmsg": "LdapAuthentication-desc",
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
-	"AutoloadClasses": {
-		"LdapAuthenticationHooks": "LdapAuthenticationHooks.php",
-		"LdapPrimaryAuthenticationProvider": "LdapPrimaryAuthenticationProvider.php",
-		"LdapAuthenticationPlugin": "LdapAuthenticationPlugin.php",
-		"LdapSessionAuthenticationProvider": "LdapSessionAuthenticationProvider.php"
+	"requires": {
+		"MediaWiki": ">= 1.29.0"
 	},
-	"config": {
-		"LDAPDomainNames": [],
-		"LDAPServerNames": [],
-		"LDAPUseLocal": false,
-		"LDAPEncryptionType": [],
-		"LDAPOptions": [],
-		"LDAPPort": [],
-		"LDAPSearchStrings": [],
-		"LDAPProxyAgent": [],
-		"LDAPProxyAgentPassword": [],
-		"LDAPSearchAttributes": [],
-		"LDAPBaseDNs": [],
-		"LDAPGroupBaseDNs": [],
-		"LDAPUserBaseDNs": [],
-		"LDAPWriterDN": [],
-		"LDAPWriterPassword": [],
-		"LDAPWriteLocation": [],
-		"LDAPAddLDAPUsers": [],
-		"LDAPUpdateLDAP": [],
-		"LDAPPasswordHash": [],
-		"LDAPMailPassword": [],
-		"LDAPPreferences": [],
-		"LDAPDisableAutoCreate": [],
-		"LDAPDebug": 0,
-		"LDAPGroupUseFullDN": [],
-		"LDAPLowerCaseUsername": [],
-		"LDAPGroupUseRetrievedUsername": [],
-		"LDAPGroupObjectclass": [],
-		"LDAPGroupAttribute": [],
-		"LDAPGroupNameAttribute": [],
-		"LDAPGroupsUseMemberOf": [],
-		"LDAPUseLDAPGroups": [],
-		"LDAPLocallyManagedGroups": [],
-		"LDAPGroupsPrevail": [],
-		"LDAPRequiredGroups": [],
-		"LDAPExcludedGroups": [],
-		"LDAPGroupSearchNestedGroups": [],
-		"LDAPAuthAttribute": [],
-		"LDAPAutoAuthUsername": "",
-		"LDAPAutoAuthDomain": "",
-		"PasswordResetRoutes": {
-			"domain": true,
-			"_merge_strategy": "array_plus"
-		},
-		"LDAPActiveDirectory": [],
-		"LDAPUseAutoAuth": false,
-		"LDAPGroupSearchPosixPrimaryGroup": false,
-		"LDAPLockOnBlock": false,
-		"LDAPLockPasswordPolicy": ""
-	},
-	"callback": "LdapAuthenticationHooks::onRegistration",
-	"Hooks": {
-		"LoadExtensionSchemaUpdates": [
-			"LdapAuthenticationHooks::onLoadExtensionSchemaUpdates"
-		],
-		"PersonalUrls": [
-			"LdapAuthenticationHooks::onPersonalUrls"
-		],
-		"BlockIpComplete": [
-			"LdapAuthenticationHooks::onBlockIpComplete"
-		],
-		"UnblockUserComplete": [
-			"LdapAuthenticationHooks::onUnblockUserComplete"
+	"MessagesDirs": {
+		"LdapAuthentication": [
+			"i18n"
 		]
 	},
+	"AutoloadClasses": {
+		"LdapAuthenticationHooks": "includes/LdapAuthenticationHooks.php",
+		"LdapAuthenticationPlugin": "includes/LdapAuthenticationPlugin.php",
+		"LdapPrimaryAuthenticationProvider": "includes/LdapPrimaryAuthenticationProvider.php",
+		"LdapSessionAuthenticationProvider": "includes/LdapSessionAuthenticationProvider.php"
+	},
+	"Hooks": {
+		"BlockIpComplete": "LdapAuthenticationHooks::onBlockIpComplete",
+		"UnblockUserComplete": "LdapAuthenticationHooks::onUnblockUserComplete",
+		"LoadExtensionSchemaUpdates": "LdapAuthenticationHooks::onLoadExtensionSchemaUpdates",
+		"PersonalUrls": "LdapAuthenticationHooks::onPersonalUrls"
+	},
+	"config_prefix": "wgLDAP",
+	"config": {
+		"DomainNames": {
+			"value": []
+		},
+		"ServerNames": {
+			"value": []
+		},
+		"UseLocal": {
+			"value": false
+		},
+		"EncryptionType": {
+			"value": []
+		},
+		"Options": {
+			"value": []
+		},
+		"Port": {
+			"value": []
+		},
+		"SearchStrings": {
+			"value": []
+		},
+		"ProxyAgent": {
+			"value": []
+		},
+		"ProxyAgentPassword": {
+			"value": []
+		},
+		"SearchAttributes": {
+			"value": []
+		},
+		"BaseDNs": {
+			"value": []
+		},
+		"GroupBaseDNs": {
+			"value": []
+		},
+		"UserBaseDNs": {
+			"value": []
+		},
+		"WriterDN": {
+			"value": []
+		},
+		"WriterPassword": {
+			"value": []
+		},
+		"WriteLocation": {
+			"value": []
+		},
+		"AddLDAPUsers": {
+			"value": []
+		},
+		"UpdateLDAP": {
+			"value": []
+		},
+		"PasswordHash": {
+			"value": []
+		},
+		"MailPassword": {
+			"value": []
+		},
+		"Preferences": {
+			"value": []
+		},
+		"DisableAutoCreate": {
+			"value": []
+		},
+		"Debug": {
+			"value": 0
+		},
+		"GroupUseFullDN": {
+			"value": []
+		},
+		"LowerCaseUsername": {
+			"value": []
+		},
+		"GroupUseRetrievedUsername": {
+			"value": []
+		},
+		"GroupObjectclass": {
+			"value": []
+		},
+		"GroupAttribute": {
+			"value": []
+		},
+		"GroupNameAttribute": {
+			"value": []
+		},
+		"GroupsUseMemberOf": {
+			"value": []
+		},
+		"UseLDAPGroups": {
+			"value": []
+		},
+		"LocallyManagedGroups": {
+			"value": []
+		},
+		"GroupsPrevail": {
+			"value": []
+		},
+		"RequiredGroups": {
+			"value": []
+		},
+		"ExcludedGroups": {
+			"value": []
+		},
+		"GroupSearchNestedGroups": {
+			"value": []
+		},
+		"AuthAttribute": {
+			"value": []
+		},
+		"AutoAuthUsername": {
+			"value": ""
+		},
+		"AutoAuthDomain": {
+			"value": ""
+		},
+		"ActiveDirectory": {
+			"value": []
+		},
+		"GroupSearchPosixPrimaryGroup": {
+			"value": false
+		},
+		"LockOnBlock": {
+			"value": false
+		},
+		"LockPasswordPolicy": {
+			"value": ""
+		},
+		"UseAutoAuth": {
+			"value": false
+		}
+	},
+	"callback": "LdapAuthenticationHooks::onRegistration",
 	"AuthManagerAutoConfig": {
 		"primaryauth": {
 			"LdapPrimaryAuthenticationProvider": {
@@ -104,5 +187,5 @@
 		"localBasePath": "",
 		"remoteExtPath": "LdapAuthentication"
 	},
-	"manifest_version": 1
+	"manifest_version": 2
 }

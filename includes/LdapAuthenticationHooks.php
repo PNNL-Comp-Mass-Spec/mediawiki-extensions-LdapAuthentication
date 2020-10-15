@@ -18,6 +18,7 @@
 
 use MediaWiki\Block\DatabaseBlock;
 
+/*
  * Hooks for LdapAuthentication extension
  *
  * @file
@@ -36,7 +37,7 @@ class LdapAuthenticationHooks {
 		$ldap = LdapAuthenticationPlugin::getInstance();
 		if ( $ldap->ldapconn === null ) {
 			if ( !$ldap->connect() ) {
-				$ldap->printDebug( 'Failed to connect to LDAP directory' );
+				$ldap->printDebug( 'Failed to connect to LDAP directory', NONSENSITIVE );
 				return false;
 			}
 		}
@@ -48,7 +49,7 @@ class LdapAuthenticationHooks {
 		}
 		$bind = $ldap->bindAs( $writer, $ldap->getConf( 'WriterPassword' ) );
 		if ( !$bind ) {
-			$ldap->printDebug( 'Failed to bind to directory as wgLDAPWriterDN' );
+			$ldap->printDebug( 'Failed to bind to directory as wgLDAPWriterDN', NONSENSITIVE );
 			return false;
 		}
 		return $ldap;
@@ -149,30 +150,13 @@ class LdapAuthenticationHooks {
 	}
 
 	/**
-	 * Update the db schema if needed
-	 * @param DatabaseUpdater $updater
-	 * @return bool
-	 */
-	public static function onLdapAuthenticationSchemaUpdates( $updater ) {
-		$base = __DIR__;
-		switch ( $updater->getDB()->getType() ) {
-		case 'mysql':
-		case 'sqlite':
-			$updater->addExtensionTable( 'ldap_domains', "$base/schema/ldap-mysql.sql" );
-			break;
-		case 'postgres':
-			$updater->addExtensionTable( 'ldap_domains', "$base/schema/ldap-postgres.sql" );
-			break;
-		}
-		return true;
-	}
-
-	/**
 	 * Base setup for the extension
 	 * @global bool $wgLDAPUseAutoAuth
 	 */
 	public static function onRegistration() {
 		global $wgLDAPUseAutoAuth;
+		global $wgPasswordResetRoutes;
+		$wgPasswordResetRoutes['domain'] = true;
 
 		// constants for search base
 		define( "GROUPDN", 0 );
@@ -191,6 +175,32 @@ class LdapAuthenticationHooks {
 				$ldap->autoAuthSetup();
 			}
 		}
+	}
+
+	/**
+	 * Update the db schema if needed
+	 * @param DatabaseUpdater $updater
+	 * @return bool
+	 */
+	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
+		$base = dirname( __DIR__ );
+		switch ( $updater->getDB()->getType() ) {
+			case 'mysql':
+			case 'sqlite':
+				$updater->addExtensionTable(
+					'ldap_domains',
+					"$base/schema/ldap-mysql.sql"
+				);
+			break;
+
+			case 'postgres':
+				$updater->addExtensionTable(
+					'ldap_domains',
+					"$base/schema/ldap-postgres.sql"
+				);
+				break;
+		}
+		return true;
 	}
 
 	/**

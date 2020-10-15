@@ -115,13 +115,13 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 			} else {
 				$ldap->printDebug( "User exists in local database, logging in.", NONSENSITIVE );
 				
+			    //$session = SessionManager::getGlobalSession();
 				$user->setID( $localId );
 				$user->loadFromId();
+			    //$user->setCookies();
 				$ldap->updateUser( $user );
+			    //$session->persist();
 			}
-
-			//$user->setCookies();
-			//wfSetupSession();
 
 			$info = [
 					'userInfo' => UserInfo::newFromName( $mungedUsername, true ),
@@ -155,12 +155,15 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 			$ldap->printDebug( "Creation failed: " . $status->getWikiText(), NONSENSITIVE );
 			return false;
 		}
+		//$session = SessionManager::getGlobalSession();
 		$ldap->initUser( $user, true );
+		//$user->setCookies();
+		//$session->persist();
+
 		# Update user count
 		$ssUpdate = new SiteStatsUpdate( 0, 0, 0, 0, 1 );
 		$ssUpdate->doUpdate();
-		# Notify hooks (e.g. Newuserlog)
-		//Hooks::run( 'AuthPluginAutoCreate', [ $user ] );
+
 
 		return true;
 	}
