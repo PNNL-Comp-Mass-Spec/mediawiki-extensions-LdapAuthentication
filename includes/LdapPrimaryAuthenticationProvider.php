@@ -27,6 +27,8 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Auth\PasswordDomainAuthenticationRequest;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\User\UserNameUtils;
 use Wikimedia\ScopedCallback;
 
 /**
@@ -46,11 +48,16 @@ use Wikimedia\ScopedCallback;
 class LdapPrimaryAuthenticationProvider
 	extends AbstractPasswordPrimaryAuthenticationProvider
 {
+	/** @var bool */
 	private $hasMultipleDomains;
+	/** @var string */
 	private $requestType;
 
-	public function __construct( $params = [] ) {
-		parent::__construct( $params );
+	/** @var string[] Users that are currently being created. */
+	private array $autoCreateInProcess = [];
+
+	public function __construct() {
+		parent::__construct();
 
 		$ldap = LdapAuthenticationPlugin::getInstance();
 		$this->hasMultipleDomains = count( $ldap->domainList() ) > 1;
@@ -58,10 +65,11 @@ class LdapPrimaryAuthenticationProvider
 			? PasswordDomainAuthenticationRequest::class
 			: PasswordAuthenticationRequest::class;
 
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
 		// Hooks to handle updating LDAP on various core events
-		\Hooks::register( 'UserSaveSettings', [ $this, 'onUserSaveSettings' ] );
-		\Hooks::register( 'UserLoggedIn', [ $this, 'onUserLoggedIn' ] );
-		\Hooks::register( 'LocalUserCreated', [ $this, 'onLocalUserCreated' ] );
+		$hookContainer->register( 'UserSaveSettings', [ $this, 'onUserSaveSettings' ] );
+		$hookContainer->register( 'UserLoggedIn', [ $this, 'onUserLoggedIn' ] );
+		$hookContainer->register( 'LocalUserCreated', [ $this, 'onLocalUserCreated' ] );
 	}
 
 	/**
@@ -113,6 +121,14 @@ class LdapPrimaryAuthenticationProvider
 	 * @codeCoverageIgnore
 	 */
 	public function onUserSaveSettings( $user ) {
+		if ( in_array( $user->getName(), $this->autoCreateInProcess ) ) {
+			$this->logger->debug(
+				'Not doing anything in onUserSaveSettings since the user creation is still in progress'
+			);
+
+			return;
+		}
+
 		$ldap = LdapAuthenticationPlugin::getInstance();
 		$reset = $this->setDomainForUser( $ldap, $user );
 		$ldap->updateExternalDB( $user );
@@ -138,6 +154,11 @@ class LdapPrimaryAuthenticationProvider
 	public function onLocalUserCreated( $user, $autocreated ) {
 		// For $autocreated, see self::autoCreatedAccount()
 		if ( !$autocreated ) {
+			$this->autoCreateInProcess = array_filter(
+				$this->autoCreateInProcess,
+				fn ( $entry ) => $entry !== $user->getId()
+			);
+
 			$ldap = LdapAuthenticationPlugin::getInstance();
 			$reset = $this->setDomainForUser( $ldap, $user );
 			$ldap->initUser( $user, $autocreated );
@@ -171,7 +192,8 @@ class LdapPrimaryAuthenticationProvider
 			return AuthenticationResponse::newAbstain();
 		}
 
-		$username = User::getCanonicalName( $req->username, 'usable' );
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$username = $userNameUtils->getCanonical( $req->username, UserNameUtils::RIGOR_USABLE );
 		if ( $username === false ) {
 			return AuthenticationResponse::newAbstain();
 		}
@@ -189,9 +211,15 @@ class LdapPrimaryAuthenticationProvider
 		}
 		$ldap->setDomain( $domain );
 
-		if ( $this->testUserCanAuthenticateInternal( $ldap, User::newFromName( $username ) ) &&
+		$user = User::newFromName( $username );
+
+		if ( $this->testUserCanAuthenticateInternal( $ldap, $user ) &&
 			$ldap->authenticate( $username, $req->password )
 		) {
+			if ( !$user->isRegistered() ) {
+				$this->autoCreateInProcess[] = $user->getName();
+			}
+
 			return AuthenticationResponse::newPass( $username );
 		}
 
@@ -201,7 +229,8 @@ class LdapPrimaryAuthenticationProvider
 	}
 
 	public function testUserCanAuthenticate( $username ) {
-		$username = User::getCanonicalName( $username, 'usable' );
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$username = $userNameUtils->getCanonical( $username, UserNameUtils::RIGOR_USABLE );
 		if ( $username === false ) {
 			return false;
 		}
@@ -242,7 +271,8 @@ class LdapPrimaryAuthenticationProvider
 	}
 
 	public function providerRevokeAccessForUser( $username ) {
-		$username = User::getCanonicalName( $username, 'usable' );
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$username = $userNameUtils->getCanonical( $username, UserNameUtils::RIGOR_USABLE );
 		if ( $username === false ) {
 			return;
 		}
@@ -272,7 +302,8 @@ class LdapPrimaryAuthenticationProvider
 	}
 
 	public function testUserExists( $username, $flags = User::READ_NORMAL ) {
-		$username = User::getCanonicalName( $username, 'usable' );
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$username = $userNameUtils->getCanonical( $username, UserNameUtils::RIGOR_USABLE );
 		if ( $username === false ) {
 			return false;
 		}
@@ -337,7 +368,8 @@ class LdapPrimaryAuthenticationProvider
 				}
 			}
 
-			$username = User::getCanonicalName( $req->username, 'usable' );
+			$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+			$username = $userNameUtils->getCanonical( $req->username, UserNameUtils::RIGOR_USABLE );
 			if ( $username !== false ) {
 				$sv = \StatusValue::newGood();
 				if ( $req->password !== null ) {
@@ -359,7 +391,9 @@ class LdapPrimaryAuthenticationProvider
 	public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
 		'@phan-var PasswordAuthenticationRequest|PasswordDomainAuthenticationRequest|null $req';
 		if ( get_class( $req ) === $this->requestType ) {
-			$username = $req->username !== null ? User::getCanonicalName( $req->username, 'usable' ) : false;
+			$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+			$username = $req->username !== null ?
+			$userNameUtils->getCanonical( $req->username, UserNameUtils::RIGOR_USABLE ) : false;
 			if ( $username === false ) {
 				return;
 			}
@@ -406,7 +440,8 @@ class LdapPrimaryAuthenticationProvider
 			return AuthenticationResponse::newAbstain();
 		}
 
-		$username = User::getCanonicalName( $req->username, 'usable' );
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$username = $userNameUtils->getCanonical( $req->username, UserNameUtils::RIGOR_USABLE );
 		if ( $username === false ) {
 			return AuthenticationResponse::newAbstain();
 		}
@@ -425,6 +460,11 @@ class LdapPrimaryAuthenticationProvider
 	}
 
 	public function autoCreatedAccount( $user, $source ) {
+		$this->autoCreateInProcess = array_filter(
+			$this->autoCreateInProcess,
+			fn ( $entry ) => $entry !== $user->getId()
+		);
+
 		$ldap = LdapAuthenticationPlugin::getInstance();
 		$reset = $this->setDomainForUser( $ldap, $user );
 		$ldap->initUser( $user, true );

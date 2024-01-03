@@ -17,46 +17,59 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  */
+
+use MediaWiki\Extension\LdapAuthentication\Hooks\HookRunner;
+use MediaWiki\Extension\LdapAuthentication\LdapAuthenticationException;
 use MediaWiki\MediaWikiServices;
+use Wikimedia\AtEase\AtEase;
 
 class LdapAuthenticationPlugin {
 
+	/** @var self|null */
 	private static $instance = null;
 
-	// ldap connection resource
+	/** @var resource|null ldap connection resource */
 	public $ldapconn;
 
-	// preferences
-	public $email, $lang, $realname, $nickname, $externalid;
+	/** @var string|null */
+	public $email;
+	/** @var string|null */
+	public $lang;
+	/** @var string|null */
+	public $realname;
+	/** @var string|null */
+	public $nickname;
+	/** @var string|null */
+	public $externalid;
 
-	// username pulled from ldap
-	public $LDAPUsername;
+	/** @var string username pulled from ldap */
+	public $LDAPUsername = '';
 
-	// userdn pulled from ldap
-	public $userdn;
+	/** @var string userdn pulled from ldap */
+	public $userdn = '';
 
-	// groups pulled from ldap
-	public $userLDAPGroups;
-	public $allLDAPGroups;
+	/** @var string[][] groups pulled from ldap */
+	public $userLDAPGroups = [];
+	/** @var string[][] groups pulled from ldap */
+	public $allLDAPGroups = [];
 
-	// boolean to test for failed auth
+	/** @var bool|null to test for failed auth */
 	public $authFailed;
 
-	// boolean to test for fetched user info
+	/** @var bool|null to test for fetched user info */
 	public $fetchedUserInfo;
 
-	// the user's entry and all attributes
+	/** @var array|null the user's entry and all attributes */
 	public $userInfo;
 
-	// the user we are currently bound as
+	/** @var string|null the user we are currently bound as */
 	public $boundAs;
 
 	/**
 	 * Fetch the singleton instance of LdapAuthenticationPlugin
-	 * @return LdapAuthenticationPlugin
+	 * @return self
 	 */
 	public static function getInstance() {
-
 		if ( self::$instance === null ) {
 			self::$instance = new LdapAuthenticationPlugin;
 		}
@@ -70,9 +83,9 @@ class LdapAuthenticationPlugin {
 	 * @return resource|false
 	 */
 	public static function ldap_connect( $hostname = null, $port = 389 ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_connect( $hostname, $port );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -84,9 +97,9 @@ class LdapAuthenticationPlugin {
 	 * @return bool
 	 */
 	public static function ldap_bind( $ldapconn, $dn = null, $password = null ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_bind( $ldapconn, $dn, $password );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -97,9 +110,9 @@ class LdapAuthenticationPlugin {
 	 */
 	public static function ldap_unbind( $ldapconn ) {
 		if ( $ldapconn ) {
-			Wikimedia\suppressWarnings();
+			AtEase::suppressWarnings();
 			$ret = ldap_unbind( $ldapconn );
-			Wikimedia\restoreWarnings();
+			AtEase::restoreWarnings();
 		} else {
 			$ret = false;
 		}
@@ -114,9 +127,9 @@ class LdapAuthenticationPlugin {
 	 * @return bool
 	 */
 	public static function ldap_modify( $ldapconn, $dn, $entry ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_modify( $ldapconn, $dn, $entry );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -128,9 +141,9 @@ class LdapAuthenticationPlugin {
 	 * @return bool
 	 */
 	public static function ldap_add( $ldapconn, $dn, $entry ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_add( $ldapconn, $dn, $entry );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -141,9 +154,9 @@ class LdapAuthenticationPlugin {
 	 * @return bool
 	 */
 	public static function ldap_delete( $ldapconn, $dn ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_delete( $ldapconn, $dn );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -169,7 +182,7 @@ class LdapAuthenticationPlugin {
 		$timelimit = null,
 		$deref = null
 	) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_search(
 			$ldapconn,
 			$basedn,
@@ -180,7 +193,7 @@ class LdapAuthenticationPlugin {
 			$timelimit,
 			$deref
 		);
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -206,7 +219,7 @@ class LdapAuthenticationPlugin {
 		$timelimit = null,
 		$deref = null
 	) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_read(
 			$ldapconn,
 			$basedn,
@@ -217,7 +230,7 @@ class LdapAuthenticationPlugin {
 			$timelimit,
 			$deref
 		);
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -243,7 +256,7 @@ class LdapAuthenticationPlugin {
 		$timelimit = null,
 		$deref = null
 	) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_list(
 			$ldapconn,
 			$basedn,
@@ -254,7 +267,7 @@ class LdapAuthenticationPlugin {
 			$timelimit,
 			$deref
 		);
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -266,9 +279,9 @@ class LdapAuthenticationPlugin {
 	 * @phan-return array<int|string,int|array<int|string,string|int|array<int|string,int|string>>>
 	 */
 	public static function ldap_get_entries( $ldapconn, $resultid ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_get_entries( $ldapconn, $resultid );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -279,9 +292,9 @@ class LdapAuthenticationPlugin {
 	 * @return int
 	 */
 	public static function ldap_count_entries( $ldapconn, $resultid ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_count_entries( $ldapconn, $resultid );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -291,9 +304,9 @@ class LdapAuthenticationPlugin {
 	 * @return int
 	 */
 	public static function ldap_errno( $ldapconn ) {
-		Wikimedia\suppressWarnings();
+		AtEase::suppressWarnings();
 		$ret = ldap_errno( $ldapconn );
-		Wikimedia\restoreWarnings();
+		AtEase::restoreWarnings();
 		return $ret;
 	}
 
@@ -549,17 +562,13 @@ class LdapAuthenticationPlugin {
 	/**
 	 * Connect to LDAP
 	 * @param string $domain
-	 * @return bool
+	 * @return true
 	 */
-	public function connect( $domain = '' ) {
+	public function connect( $domain = '' ): bool {
 		$this->printDebug( "Entering Connect", NONSENSITIVE );
 
 		if ( !function_exists( 'ldap_connect' ) ) {
-			$this->printDebug( "It looks like you are missing LDAP support; please ensure you " .
-				"have either compiled LDAP support in, or have enabled the module. If the " .
-				"authentication is working for you, the plugin isn't properly detecting the LDAP " .
-				"module, and you can safely ignore this message.", NONSENSITIVE );
-			return false;
+			throw new LdapAuthenticationException( "Missing PHP LDAP support" );
 		}
 
 		// Set the server string depending on whether we use ssl or not
@@ -589,8 +598,7 @@ class LdapAuthenticationPlugin {
 		}
 		$servers = trim( $servers );
 		if ( !$servers ) {
-			$this->printDebug( 'Empty server string, skipping connection', NONSENSITIVE );
-			return false;
+			throw new LdapAuthenticationException( 'No servers configured' );
 		}
 
 		$this->printDebug( "Using servers: $servers", SENSITIVE );
@@ -598,10 +606,9 @@ class LdapAuthenticationPlugin {
 		// Connect and set options
 		$this->ldapconn = self::ldap_connect( $servers );
 		if ( !$this->ldapconn ) {
-			$this->printDebug( "PHP's LDAP connect method returned null, this likely implies a " .
-				"misconfiguration of the plugin.", NONSENSITIVE );
-			return false;
+			throw new LdapAuthenticationException( 'Failed to connect to the LDAP server' );
 		}
+
 		ldap_set_option( $this->ldapconn, LDAP_OPT_PROTOCOL_VERSION, 3 );
 		ldap_set_option( $this->ldapconn, LDAP_OPT_REFERRALS, 0 );
 
@@ -617,13 +624,14 @@ class LdapAuthenticationPlugin {
 		if ( $encryptionType == "tls" ) {
 			$this->printDebug( "Using TLS", SENSITIVE );
 			if ( !ldap_start_tls( $this->ldapconn ) ) {
-				$this->printDebug( "Failed to start TLS.", SENSITIVE );
-				return false;
+				throw new LdapAuthenticationException( 'Failed to enable TLS on the LDAP connection' );
 			}
 		}
 		$this->printDebug( "PHP's LDAP connect method returned true (note, this does not imply " .
 			"it connected to the server).", NONSENSITIVE );
 
+		// TODO: this method currently just throws exceptions if this fails, so
+		// we should be able to remove this return value
 		return true;
 	}
 
@@ -642,7 +650,7 @@ class LdapAuthenticationPlugin {
 		$this->printDebug( "Entering authenticate for username $username", NONSENSITIVE );
 
 		// We don't handle local authentication
-		if ( 'local' == $this->getDomain() ) {
+		if ( $this->getDomain() == 'local' ) {
 			$this->printDebug( "User is using a local domain", SENSITIVE );
 			return false;
 		}
@@ -674,7 +682,7 @@ class LdapAuthenticationPlugin {
 		// tricked if someone is supplying one when using password auth.
 		// auto-authentication is handled by the webserver; a blank password
 		// here is wanted.
-		if ( '' == $password && !$this->useAutoAuth() ) {
+		if ( $password == '' && !$this->useAutoAuth() ) {
 			$this->printDebug( "User used a blank password", NONSENSITIVE );
 			return false;
 		}
@@ -685,7 +693,7 @@ class LdapAuthenticationPlugin {
 			// It is possible that getSearchString will return an
 			// empty string; if this happens, the bind will ALWAYS
 			// return true, and will let anyone in!
-			if ( '' == $this->userdn ) {
+			if ( $this->userdn == '' ) {
 				$this->printDebug( "User DN is blank", NONSENSITIVE );
 				$this->unbind();
 				$this->markAuthFailed();
@@ -702,8 +710,8 @@ class LdapAuthenticationPlugin {
 					return false;
 				}
 				$result = true;
-				Hooks::run( 'ChainAuth', [ $username, $password, &$result ] );
-				// @phan-suppress-next-line PhanImpossibleCondition False positive
+				( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
+					->onChainAuth( $username, $password, $result );
 				if ( !$result ) {
 					return false;
 				}
@@ -898,8 +906,9 @@ class LdapAuthenticationPlugin {
 
 		$this->email = $user->getEmail();
 		$this->realname = $user->getRealName();
-		$this->nickname = $user->getOption( 'nickname' );
-		$this->lang = $user->getOption( 'language' );
+		$userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
+		$this->nickname = $userOptionsLookup->getOption( $user, 'nickname' );
+		$this->lang = $userOptionsLookup->getOption( $user, 'language' );
 		if ( $this->connect() ) {
 			$this->userdn = $this->getSearchString( $user->getName() );
 			$this->printDebug( "Binding as the writerDN", NONSENSITIVE );
@@ -975,7 +984,7 @@ class LdapAuthenticationPlugin {
 		$this->printDebug( "Entering allowPasswordChange", NONSENSITIVE );
 
 		// Local domains need to be able to change passwords
-		return ( $this->getConf( 'UseLocal' ) && 'local' == $this->getDomain() )
+		return ( $this->getConf( 'UseLocal' ) && $this->getDomain() == 'local' )
 			|| $this->getConf( 'UpdateLDAP' )
 			|| $this->getConf( 'MailPassword' );
 	}
@@ -1003,7 +1012,7 @@ class LdapAuthenticationPlugin {
 	public function addUser( $user, $password, $email = '', $realname = '' ) {
 		$this->printDebug( "Entering addUser", NONSENSITIVE );
 
-		if ( !$this->getConf( 'AddLDAPUsers' ) || 'local' == $this->getDomain() ) {
+		if ( !$this->getConf( 'AddLDAPUsers' ) || $this->getDomain() == 'local' ) {
 			$this->printDebug( "Either the user is using a local domain, or the wiki isn't " .
 				"allowing users to be added to LDAP", NONSENSITIVE );
 
@@ -1037,7 +1046,7 @@ class LdapAuthenticationPlugin {
 		if ( $this->connect() ) {
 			$writeloc = $this->getConf( 'WriteLocation' );
 			$this->userdn = $this->getSearchString( $username );
-			if ( '' == $this->userdn ) {
+			if ( $this->userdn == '' ) {
 				$this->printDebug(
 					"userdn is blank, attempting to use wgLDAPWriteLocation", NONSENSITIVE
 				);
@@ -1099,9 +1108,9 @@ class LdapAuthenticationPlugin {
 
 			$result = true;
 			# Let other extensions modify the user object before creation
-			Hooks::run( 'LDAPSetCreationValues',
-				[ $this, $username, &$values, $writeloc, &$this->userdn, &$result ] );
-			// @phan-suppress-next-line PhanImpossibleCondition False positive
+			$hookRunner = new HookRunner( MediaWikiServices::getInstance()->getHookContainer() );
+			$hookRunner->onLDAPSetCreationValues(
+				$this, $username, $values, $writeloc, $this->userdn, $result );
 			if ( !$result ) {
 				$this->printDebug(
 					"Failed to add user because LDAPSetCreationValues returned false", NONSENSITIVE
@@ -1120,9 +1129,8 @@ class LdapAuthenticationPlugin {
 			# Constraint violation, let's allow other plugins a chance to retry
 			if ( $errno === 19 ) {
 				$result = false;
-				Hooks::run( 'LDAPRetrySetCreationValues',
-					[ $this, $username, &$values, $writeloc, &$this->userdn, &$result ] );
-				// @phan-suppress-next-line PhanImpossibleCondition False positive
+				$hookRunner->onLDAPRetrySetCreationValues(
+					$this, $username, $values, $writeloc, $this->userdn, $result );
 				if ( $result &&
 					self::ldap_add( $this->ldapconn, $this->userdn, $values )
 				) {
@@ -1131,7 +1139,7 @@ class LdapAuthenticationPlugin {
 					return true;
 				}
 			}
-			$this->printDebug( "Failed to add user", NONSENSITIVE );
+			$this->printDebug( "Failed to add user (errno $errno)", NONSENSITIVE );
 			$this->unbind();
 		}
 		return false;
@@ -1153,8 +1161,6 @@ class LdapAuthenticationPlugin {
 	 * @return string
 	 */
 	public function getDomain() {
-		global $wgUser;
-
 		//$this->printDebug( "Entering getDomain", NONSENSITIVE );
 
 		# If there's only a single domain set, there's no reason
@@ -1174,10 +1180,10 @@ class LdapAuthenticationPlugin {
 		}
 		# If the session domain isn't set, the user may have been logged
 		# in with a token, check the user options.
-		# If $wgUser isn't defined yet, it might be due to an LDAPAutoAuthDomain config.
-		if ( isset( $wgUser ) && $wgUser->isLoggedIn() && $wgUser->getToken( false ) ) {
+		$user = RequestContext::getMain()->getUser();
+		if ( $user->isRegistered() && $user->getToken( false ) ) {
 			//$this->printDebug( "Pulling domain from user options.", NONSENSITIVE );
-			$domain = self::loadDomain( $wgUser );
+			$domain = self::loadDomain( $user );
 			$this->printDebug( "Pulled domain from user options, returning '".$domain."'", NONSENSITIVE );
 			if ( $domain ) {
 				return $domain;
@@ -1198,7 +1204,7 @@ class LdapAuthenticationPlugin {
 	public function validDomain( $domain ) {
 		$this->printDebug( "Entering validDomain", NONSENSITIVE );
 		if ( in_array( $domain, $this->getConf( 'DomainNames' ) ) ||
-			( $this->getConf( 'UseLocal' ) && 'local' == $domain )
+			( $this->getConf( 'UseLocal' ) && $domain == 'local' )
 		) {
 			$this->printDebug( "User is using a valid domain ($domain).", NONSENSITIVE );
 			return true;
@@ -1220,15 +1226,17 @@ class LdapAuthenticationPlugin {
 			return;
 		}
 
+		$services = MediaWikiServices::getInstance();
 		if ( $this->getConf( 'Preferences' ) ) {
 			$this->printDebug( "Setting user preferences.", NONSENSITIVE );
+			$userOptionsManager = $services->getUserOptionsManager();
 			if ( is_string( $this->lang ) ) {
 				$this->printDebug( "Setting language.", NONSENSITIVE );
-				$user->setOption( 'language', $this->lang );
+				$userOptionsManager->setOption( $user, 'language', $this->lang );
 			}
 			if ( is_string( $this->nickname ) ) {
 				$this->printDebug( "Setting nickname.", NONSENSITIVE );
-				$user->setOption( 'nickname', $this->nickname );
+				$userOptionsManager->setOption( $user, 'nickname', $this->nickname );
 			}
 			if ( is_string( $this->realname ) ) {
 				$this->printDebug( "Setting realname.", NONSENSITIVE );
@@ -1253,7 +1261,7 @@ class LdapAuthenticationPlugin {
 		}
 
 		# Let other extensions update the user
-		Hooks::run( 'LDAPUpdateUser', [ &$user ] );
+		( new HookRunner( $services->getHookContainer() ) )->onLDAPUpdateUser( $user );
 
 		$this->printDebug( "Saving user settings.", NONSENSITIVE );
 		$user->saveSettings();
@@ -1273,7 +1281,7 @@ class LdapAuthenticationPlugin {
 			$this->printDebug( "User didn't successfully authenticate, exiting.", NONSENSITIVE );
 			return;
 		}
-		if ( 'local' == $this->getDomain() ) {
+		if ( $this->getDomain() == 'local' ) {
 			$this->printDebug( "User is using a local domain", NONSENSITIVE );
 			return;
 		}
@@ -1323,7 +1331,8 @@ class LdapAuthenticationPlugin {
 	 */
 	public function getCanonicalName( $username ) {
 		$this->printDebug( "Entering getCanonicalName", NONSENSITIVE );
-		if ( User::isIP( $username ) ) {
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		if ( $userNameUtils->isIP( $username ) ) {
 			$this->printDebug( "Username is an IP, not munging.", NONSENSITIVE );
 			return $username;
 		}
@@ -1346,8 +1355,8 @@ class LdapAuthenticationPlugin {
 							// try to fetch the username by search before bind.
 							$this->userdn = $this->getUserDN( $username, true );
 							$hookSetUsername = $this->LDAPUsername;
-							Hooks::run( 'SetUsernameAttributeFromLDAP',
-								[ &$hookSetUsername, $this->userInfo ] );
+							( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
+								->onSetUsernameAttributeFromLDAP( $hookSetUsername, $this->userInfo );
 							if ( is_string( $hookSetUsername ) ) {
 								$this->printDebug(
 									"Username munged by hook: $hookSetUsername", NONSENSITIVE
@@ -1908,6 +1917,7 @@ class LdapAuthenticationPlugin {
 	 */
 	private function setGroups( &$user ) {
 		global $wgGroupPermissions;
+		$userGroupManager = MediaWikiServices::getInstance()->getUserGroupManager();
 
 		// TODO: this is *really* ugly code. clean it up!
 		$this->printDebug( "Entering setGroups.", NONSENSITIVE );
@@ -1926,8 +1936,8 @@ class LdapAuthenticationPlugin {
 		}
 
 		# add groups permissions
-		$localAvailGrps = $user->getAllGroups();
-		$localUserGrps = $user->getEffectiveGroups();
+		$localAvailGrps = $userGroupManager->listAllGroups();
+		$localUserGrps = $userGroupManager->getUserEffectiveGroups( $user );
 		$defaultLocallyManagedGrps = [ 'bot', 'sysop', 'bureaucrat' ];
 		$locallyManagedGrps = $this->getConf( 'LocallyManagedGroups' );
 		if ( $locallyManagedGrps ) {
@@ -1958,14 +1968,14 @@ class LdapAuthenticationPlugin {
 					# the ldap group overrides the local group
 					# so as the user is currently not a member of the ldap group,
 					# he shall be removed from the local group
-					$user->removeGroup( $cGroup );
+					$userGroupManager->removeUserFromGroup( $user, $cGroup );
 				}
 			} else {
 				# no, but maybe the user has recently been added to the ldap group?
 				$this->printDebug( "Checking to see if user is in: $cGroup", NONSENSITIVE );
 				if ( $this->hasLDAPGroup( $cGroup ) ) {
 					$this->printDebug( "Adding user to: $cGroup", NONSENSITIVE );
-					$user->addGroup( $cGroup );
+					$userGroupManager->addUserToGroup( $user, $cGroup );
 				}
 			}
 		}
@@ -1983,6 +1993,7 @@ class LdapAuthenticationPlugin {
 		// Set the password hashing based upon admin preference
 		switch ( $this->getConf( 'PasswordHash' ) ) {
 			case 'crypt':
+				// @phan-suppress-next-line PhanParamTooFewInternal FIXME Second arg is optional but emit E_NOTICE
 				$pass = '{CRYPT}' . crypt( $password );
 				break;
 			case 'clear':
@@ -2154,7 +2165,7 @@ class LdapAuthenticationPlugin {
 	public static function saveDomain( $user, $domain ) {
 		$user_id = $user->getId();
 		if ( $user_id != 0 ) {
-			$dbw = wfGetDB( DB_MASTER );
+			$dbw = wfGetDB( DB_PRIMARY );
 			$olddomain = self::loadDomain( $user );
 			if ( $olddomain ) {
 				// Check we really need to update domain.

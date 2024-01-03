@@ -7,7 +7,7 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.29.0"
+		"MediaWiki": ">= 1.41"
 	},
 	"MessagesDirs": {
 		"LdapAuthentication": [
@@ -16,15 +16,27 @@
 	},
 	"AutoloadClasses": {
 		"LdapAuthenticationHooks": "includes/LdapAuthenticationHooks.php",
+		"LdapAuthenticationSchemaHooks": "includes/LdapAuthenticationSchemaHooks.php",
 		"LdapAuthenticationPlugin": "includes/LdapAuthenticationPlugin.php",
 		"LdapPrimaryAuthenticationProvider": "includes/LdapPrimaryAuthenticationProvider.php",
 		"LdapSessionAuthenticationProvider": "includes/LdapSessionAuthenticationProvider.php"
 	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\LdapAuthentication\\": "includes/"
+	},
 	"Hooks": {
-		"BlockIpComplete": "LdapAuthenticationHooks::onBlockIpComplete",
-		"UnblockUserComplete": "LdapAuthenticationHooks::onUnblockUserComplete",
-		"LoadExtensionSchemaUpdates": "LdapAuthenticationHooks::onLoadExtensionSchemaUpdates",
-		"PersonalUrls": "LdapAuthenticationHooks::onPersonalUrls"
+		"BlockIpComplete": "main",
+		"UnblockUserComplete": "main",
+		"SkinTemplateNavigation::Universal": "main",
+		"LoadExtensionSchemaUpdates": "schema"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "LdapAuthenticationHooks"
+		},
+		"schema": {
+			"class": "LdapAuthenticationSchemaHooks"
+		}
 	},
 	"config_prefix": "wgLDAP",
 	"config": {

@@ -17,6 +17,10 @@
  */
 
 use MediaWiki\Block\DatabaseBlock;
+use MediaWiki\Hook\BlockIpCompleteHook;
+use MediaWiki\Hook\SkinTemplateNavigation__UniversalHook;
+use MediaWiki\Hook\UnblockUserCompleteHook;
+use MediaWiki\User\UserIdentity;
 
 /**
  * Hooks for LdapAuthentication extension
@@ -25,13 +29,17 @@ use MediaWiki\Block\DatabaseBlock;
  * @ingroup Extensions
  */
 
-class LdapAuthenticationHooks {
+class LdapAuthenticationHooks implements
+	BlockIpCompleteHook,
+    SkinTemplateNavigation__UniversalHook,
+	UnblockUserCompleteHook
+{
 
 	/**
 	 * Get an LdapAuthenticationPlugin instance that is connected to the LDAP
 	 * directory and bound as the wgLDAPWriterDN user.
 	 *
-	 * @return LdapAuthenticationPlugin|bool LDAP connection or false if initialization fails
+	 * @return LdapAuthenticationPlugin|false LDAP connection or false if initialization fails
 	 */
 	private static function getLDAP() {
 		$ldap = LdapAuthenticationPlugin::getInstance();
@@ -61,15 +69,15 @@ class LdapAuthenticationHooks {
 	 * pwdAccountLockedTime doesn't cover well like out-of-band (e.g. by an
 	 * admin) password resets.
 	 *
-	 * @param User $user User to lock/unlock
+	 * @param UserIdentity $user UserIdentity to lock/unlock
 	 * @param bool $lock True to lock, False to unlock
-	 * @return null|bool|string status of operation, suitable for use as a Hook
-	 *   handler response
+	 * @return bool True if successful, false otherwise
 	 */
-	private static function setLdapLockStatus( User $user, $lock ) {
+	private static function setLdapLockStatus( UserIdentity $user, $lock ) {
 		$ldap = static::getLDAP();
 		if ( !$ldap ) {
-			return 'Failed to initialize LDAP connection';
+			wfDebugLog( 'ldap', 'Failed to initialize LDAP connection' );
+			return false;
 		}
 
 		$ppolicy = $ldap->getConf( 'LDAPLockPasswordPolicy' );
@@ -88,7 +96,11 @@ class LdapAuthenticationHooks {
 
 		$userDN = $ldap->getUserDN( $user->getName() );
 		if ( !$userDN ) {
-			return "Failed to lookup DN for user {$user->getName()}";
+			$ldap->printDebug(
+				"Failed to lookup DN for user {$user->getName()}",
+				NONSENSITIVE
+			);
+			return false;
 		}
 		$ldap->printDebug(
 			"Attempting to {$actionStr} {$userDN}", NONSENSITIVE );
@@ -100,8 +112,9 @@ class LdapAuthenticationHooks {
 			$msg = "Failed to {$actionStr} LDAP account {$userDN}";
 			$errno = LdapAuthenticationPlugin::ldap_errno( $ldap->ldapconn );
 			$ldap->printDebug( $msg . ": LDAP errno {$errno}", NONSENSITIVE );
-			return $msg;
+			return false;
 		}
+		return true;
 	}
 
 	/**
@@ -112,20 +125,21 @@ class LdapAuthenticationHooks {
 	 * @param DatabaseBlock $block The block object that was saved
 	 * @param User $user The user who performed the unblock
 	 * @param DatabaseBlock|null $prior Previous block that was replaced
-	 * @return null|bool|string Hook status
+	 * @return bool True if successful, false otherwise
 	 */
-	public static function onBlockIpComplete( DatabaseBlock $block, User $user, $prior ) {
+	public function onBlockIpComplete( $block, $user, $prior ) {
 		global $wgLDAPLockOnBlock;
 		if ( $wgLDAPLockOnBlock ) {
 			if ( $block->getType() === DatabaseBlock::TYPE_USER
 				&& $block->getExpiry() === 'infinity'
 				&& $block->isSitewide()
 			) {
-				return static::setLdapLockStatus( $block->getTarget(), true );
+				// @phan-suppress-next-line PhanTypeMismatchArgumentNullable $user can't be null
+				return static::setLdapLockStatus( $block->getTargetUserIdentity(), true );
 			} elseif ( $prior ) {
 				// New block replaced a prior block. Process the prior block
 				// as though it was explicitly removed.
-				return static::onUnblockUserComplete( $prior, $user );
+				return $this->onUnblockUserComplete( $prior, $user );
 			}
 		}
 	}
@@ -136,16 +150,17 @@ class LdapAuthenticationHooks {
 	 *
 	 * @param DatabaseBlock $block the block object that was saved
 	 * @param User $user The user who performed the unblock
-	 * @return null|bool|string Hook status
+	 * @return bool True if successful, false otherwise
 	 */
-	public static function onUnblockUserComplete( DatabaseBlock $block, User $user ) {
+	public function onUnblockUserComplete( $block, $user ) {
 		global $wgLDAPLockOnBlock;
 		if ( $wgLDAPLockOnBlock
 			&& $block->getType() === DatabaseBlock::TYPE_USER
 			&& $block->getExpiry() === 'infinity'
 			&& $block->isSitewide()
 		) {
-			return static::setLdapLockStatus( $block->getTarget(), false );
+			// @phan-suppress-next-line PhanTypeMismatchArgumentNullable $user can't be null
+			return static::setLdapLockStatus( $block->getTargetUserIdentity(), false );
 		}
 	}
 
@@ -155,9 +170,6 @@ class LdapAuthenticationHooks {
 	 */
 	public static function onRegistration() {
 		global $wgLDAPUseAutoAuth;
-		global $wgPasswordResetRoutes;
-		$wgPasswordResetRoutes['domain'] = true;
-
 		// constants for search base
 		define( "GROUPDN", 0 );
 		define( "USERDN", 1 );
@@ -178,46 +190,19 @@ class LdapAuthenticationHooks {
 	}
 
 	/**
-	 * Update the db schema if needed
-	 * @param DatabaseUpdater $updater
-	 * @return bool
-	 */
-	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
-		$base = dirname( __DIR__ );
-		switch ( $updater->getDB()->getType() ) {
-			case 'mysql':
-			case 'sqlite':
-				$updater->addExtensionTable(
-					'ldap_domains',
-					"$base/schema/ldap-mysql.sql"
-				);
-			break;
-
-			case 'postgres':
-				$updater->addExtensionTable(
-					'ldap_domains',
-					"$base/schema/ldap-postgres.sql"
-				);
-				break;
-		}
-		return true;
-	}
-
-	/**
 	 * Don't display the logout link if the user was automatically logged in
 	 * @global bool $wgLDAPUseAutoAuth
-	 * @param array $personal_urls
-	 * @param Title $title
-	 * @param SkinTemplate $skin
+	 * @param SkinTemplate $skTemplate
+	 * @param array $links
 	 */
-	public static function onPersonalUrls( array &$personal_urls, Title $title, SkinTemplate $skin ) {
+	public function onSkinTemplateNavigation__Universal( $skTemplate, &$links ): void {
 		global $wgLDAPUseAutoAuth;
 		$auth = LdapAuthenticationPlugin::getInstance();
 		$auth->printDebug( "Entering NoLogout.", NONSENSITIVE );
 		if ( $wgLDAPUseAutoAuth && $auth->getConf( "AutoAuthUsername" ) !== "" &&
 			$auth->getConf( "AutoAuthDomain" ) !== "" ) {
 			$auth->autoAuthSetup();
-			unset( $personal_urls['logout'] );
+			unset( $links['user-menu']['logout'] );
 		}
 	}
 }

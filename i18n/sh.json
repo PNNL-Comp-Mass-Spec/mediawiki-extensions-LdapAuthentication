@@ -1,8 +1,0 @@
-{
-	"@metadata": {
-		"authors": [
-			"Vlad5250"
-		]
-	},
-	"ldapauthentication-desc": "LDAP priključak potvrđavanja sa podrškom za mnoge metode LDAP potvrđavanja"
-}
