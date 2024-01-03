@@ -18,7 +18,7 @@
 
 use MediaWiki\Block\DatabaseBlock;
 
-/*
+/**
  * Hooks for LdapAuthentication extension
  *
  * @file
