@@ -21,9 +21,11 @@
  * @ingroup Auth
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\CookieSessionProvider;
 use MediaWiki\Session\SessionInfo;
 use MediaWiki\Session\UserInfo;
+use MediaWiki\User\UserIdentityLookup;
 
 class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 
@@ -102,7 +104,11 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 				"User exists in LDAP; finding the user by name ($mungedUsername) in MediaWiki.",
 				NONSENSITIVE
 			);
-			$localId = User::idFromName( $mungedUsername );
+			$userIdentityLookup = MediaWikiServices::getInstance()->getUserIdentityLookup();
+			$localUserIdentity = $userIdentityLookup->getUserIdentityByName( $mungedUsername );
+			$localId = ( $localUserIdentity && $localUserIdentity->getId() )
+				? $localUserIdentity->getId()
+				: null;
 			$ldap->printDebug( "Got id ($localId).", NONSENSITIVE );
 
 			$user = User::newFromSession( $request ); // TODO: or use User::newFromName( $mungedUsername );?
