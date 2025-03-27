@@ -39,10 +39,10 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 	/**
 	 * Does the web server authentication piece of the LDAP plugin.
 	 *
-	 *$param $request WebRequest
+	 *$param $request \MediaWiki\Request\WebRequest
 	 * @return SessionInfo|null
 	 */
-	public function provideSessionInfo( WebRequest $request ) {
+	public function provideSessionInfo( \MediaWiki\Request\WebRequest $request ) {
 		global $wgLDAPUseAutoAuth;
 
 		$session = parent::provideSessionInfo( $request );
@@ -93,7 +93,7 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 				// If the user doesn't exist in LDAP, there isn't much reason to
 				// go any further.
 				$ldap->printDebug( "User wasn't found in LDAP, exiting.", NONSENSITIVE );
-				return false;
+				return null;
 			}
 
 			// We need the username that MediaWiki will always use, not necessarily the one we
@@ -140,7 +140,6 @@ class LdapSessionAuthenticationProvider extends CookieSessionProvider {
 	}
 
 	/**
-	 * @param $user User
 	 * @param $mungedUsername String
 	 * @return bool
 	 */
